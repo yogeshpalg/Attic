@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The body and contacts of a flash storage chip.
+       Storage rather than a house, and a chip rather than a Mac: Apple's
+       guidelines forbid replicating their hardware in an icon, and a chip says
+       "this is about the disk" without borrowing anyone's product.
+       No shadow or bevel — the system draws those. -->
+  <g fill="#F4F8FB">
+    <rect x="248" y="248" width="528" height="480" rx="116"/>
+    <!-- Contacts along the bottom edge. Four is enough to read as a chip at
+         16pt; more become a grey smear. -->
+    <rect x="332" y="728" width="56" height="64" rx="28"/>
+    <rect x="436" y="728" width="56" height="64" rx="28"/>
+    <rect x="540" y="728" width="56" height="64" rx="28"/>
+    <rect x="644" y="728" width="56" height="64" rx="28"/>
+  </g>
+</svg>

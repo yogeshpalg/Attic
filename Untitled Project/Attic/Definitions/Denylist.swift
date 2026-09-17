@@ -55,6 +55,30 @@ enum Denylist {
         return true
     }
 
+    /// Whether a rule may *look* inside a directory, which is a different
+    /// question from whether it may remove it.
+    ///
+    /// Only the "inside" direction applies here: a rule rooted at `~/Documents`
+    /// is refused outright and nothing is enumerated. A rule rooted *above* a
+    /// protected path — `~/Library`, which contains the device backups — may
+    /// scan, because everything it finds is then checked in both directions by
+    /// `rejection(for:)` before it can be emitted or removed. A `wholeRoot` rule
+    /// is its own candidate, so it is still caught by that second check.
+    static func scanRejection(for url: URL) -> RejectionReason? {
+        let candidate = PathContainment.canonical(url)
+        for denied in paths where PathContainment.contains(
+            root: PathContainment.canonical(denied), candidate: candidate
+        ) {
+            return .denylisted
+        }
+        for rule in protectedComponents {
+            let root = PathContainment.canonical(rule.root)
+            guard PathContainment.contains(root: root, candidate: candidate) else { continue }
+            if candidate.pathComponents.contains(rule.name) { return .protectedComponent }
+        }
+        return nil
+    }
+
     /// Distinguishes the two rejection kinds for reporting.
     static func rejection(for url: URL) -> RejectionReason? {
         let candidate = PathContainment.canonical(url)

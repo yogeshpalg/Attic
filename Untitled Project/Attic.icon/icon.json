@@ -1,0 +1,37 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.07059,0.19608,0.29020,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "layer3_reclaimed.svg",
+          "name" : "Reclaimed"
+        },
+        {
+          "image-name" : "layer2_cells.svg",
+          "name" : "Cells"
+        },
+        {
+          "image-name" : "layer1_chip.svg",
+          "name" : "Chip"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.45
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The third row, part cleared. The whole point of the app in one shape: a
+       row that was full, and the gap where the space came back.
+       Amber against the cool body, so the eye lands on the part that changed. -->
+  <rect x="336" y="560" width="168" height="64" rx="32" fill="#FFB43A"/>
+</svg>

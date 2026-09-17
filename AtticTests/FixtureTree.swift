@@ -1,5 +1,5 @@
 import Foundation
-@testable import MyApp
+@testable import Untitled_Project
 
 /// A throwaway directory tree the scanners can be pointed at.
 ///
@@ -65,19 +65,27 @@ extension RuleDefinition {
     /// is not exercising gets a harmless default.
     static func fixture(
         id: String = "test.rule",
+        minAppVersion: String = "1.0",
+        minOSVersion: String? = nil,
+        maxOSVersion: String? = nil,
+        category: Untitled_Project.Category = .developerXcode,
         root: URL,
         match: MatchSpec = .immediateChildren,
         exclude: [ExcludeRule] = [],
         grouping: Grouping = .perMatch,
         retention: Retention = .none,
         action: RemovalAction = .trash,
+        privilege: Privilege = .user,
         grade: SafetyGrade = .safe,
+        holdsAuthoredWork: Bool = false,
         status: RuleStatus = .active
     ) -> RuleDefinition {
         RuleDefinition(
             id: id,
-            minAppVersion: "1.0",
-            category: .developerXcode,
+            minAppVersion: minAppVersion,
+            minOSVersion: minOSVersion,
+            maxOSVersion: maxOSVersion,
+            category: category,
             displayName: "Fixture",
             root: .absolute(root.path),
             match: match,
@@ -87,14 +95,62 @@ extension RuleDefinition {
             subtitleStyle: .fileCount,
             applicability: .rootExists,
             action: action,
-            privilege: .user,
+            privilege: privilege,
             grade: grade,
+            holdsAuthoredWork: holdsAuthoredWork,
             status: status,
             explanation: Explanation(
                 whatThisIs: "Fixture.",
                 whatStopsWorking: "Nothing.",
                 doesItComeBack: "Yes."
             )
+        )
+    }
+}
+
+// MARK: - Finding construction
+
+extension Finding {
+
+    /// A finding built directly, for the parts of the app that consume findings
+    /// rather than produce them — the planner and the view model. Defaults describe
+    /// the ordinary case: an active, safe, user-removable item.
+    static func fixture(
+        id: String = "test.rule.item",
+        ruleID: String = "test.rule",
+        // Qualified: Foundation exposes a `Category` of its own, so the bare name
+        // is ambiguous from inside the test target.
+        category: Untitled_Project.Category = .developerXcode,
+        displayName: String = "Fixture item",
+        subtitle: String = "4 files",
+        paths: [URL],
+        fileCount: Int = 1,
+        allocatedSize: Int64 = 4096,
+        lastUsed: Date? = nil,
+        grade: SafetyGrade = .safe,
+        action: RemovalAction = .trash,
+        privilege: Privilege = .user,
+        status: RuleStatus = .active
+    ) -> Finding {
+        Finding(
+            id: id,
+            ruleID: ruleID,
+            category: category,
+            displayName: displayName,
+            subtitle: subtitle,
+            paths: paths,
+            fileCount: fileCount,
+            allocatedSize: allocatedSize,
+            lastUsed: lastUsed,
+            grade: grade,
+            action: action,
+            privilege: privilege,
+            explanation: Explanation(
+                whatThisIs: "Fixture.",
+                whatStopsWorking: "Nothing.",
+                doesItComeBack: "Yes."
+            ),
+            status: status
         )
     }
 }

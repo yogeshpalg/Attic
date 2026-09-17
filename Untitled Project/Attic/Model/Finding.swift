@@ -18,6 +18,14 @@ struct Finding: Identifiable, Sendable, Equatable {
     let privilege: Privilege
     let explanation: Explanation
     let status: RuleStatus
+    /// True when part of this could not be read, which means the size shown is a
+    /// floor rather than the figure. Carried onto the finding so the interface
+    /// can say so: a number that is quietly too small is worse than no number.
+    var wasPartlyUnreadable: Bool = false
+    /// True when this matched authored work — history, or something built here
+    /// that exists nowhere else. With protection on it is shown and measured
+    /// but never offered, and the row says which of the two it is.
+    var holdsAuthoredWork: Bool = false
 
     /// A checkbox is offered only for active rules that Attic can actually act on.
     var isSelectable: Bool {

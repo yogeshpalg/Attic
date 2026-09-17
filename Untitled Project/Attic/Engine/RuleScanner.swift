@@ -40,9 +40,13 @@ struct RuleScanner: Sendable {
             return
         }
 
-        // The root itself is gated first. A rule whose root is denylisted produces
-        // nothing at all, whatever it claims to match.
-        if let rejection = Denylist.rejection(for: root) {
+        // The root itself is gated first. A rule rooted inside a protected path
+        // produces nothing at all and enumerates nothing, whatever it claims to
+        // match. Rooting *above* one is allowed — every candidate is still
+        // checked in both directions below, including a `wholeRoot` rule's own
+        // root — so a scan can cover ~/Library without being able to touch the
+        // device backups inside it.
+        if let rejection = Denylist.scanRejection(for: root) {
             continuation.yield(.rejected(ruleID: definition.id, path: root.path, reason: rejection))
             return
         }
@@ -56,6 +60,14 @@ struct RuleScanner: Sendable {
         let retained = applyRetention(to: matches, continuation: continuation)
         guard !retained.isEmpty else { return }
 
+        // A match that measured nothing because nothing could be read makes no
+        // useful row — "0 bytes" is not an offer. It is reported at the rule
+        // level instead, so a folder the user could unlock is never passed over
+        // in silence, and the rest of the rule still reports normally.
+        if retained.contains(where: { $0.reading.allocatedSize == 0 && $0.reading.encounteredDenial }) {
+            continuation.yield(.unavailable(ruleID: definition.id, reason: .permissionDenied))
+        }
+
         switch definition.grouping {
         case .single:
             if let finding = makeSingleFinding(from: retained) {
@@ -68,6 +80,16 @@ struct RuleScanner: Sendable {
                     continuation.yield(.found(finding))
                 }
             }
+        case .perOwner:
+            // Matches with no owner would silently vanish here, so they fall back
+            // to being their own group rather than being dropped.
+            let groups = Dictionary(grouping: retained) { $0.owner ?? $0.url.path }
+            for key in groups.keys.sorted() {
+                if Task.isCancelled { return }
+                if let finding = makeOwnerFinding(from: groups[key] ?? [], owner: key) {
+                    continuation.yield(.found(finding))
+                }
+            }
         }
     }
 
@@ -76,10 +98,15 @@ struct RuleScanner: Sendable {
     private struct Match: Sendable {
         let url: URL
         let reading: SizeReading
+        /// Set only where matches know what they belong to, which today means the
+        /// bundle identifier behind a set of leftovers.
+        var owner: String?
+        var ownerName: String?
     }
 
     private func gatherMatches(continuation: AsyncStream<ScanEvent>.Continuation) -> [Match] {
         var candidates: [URL] = []
+        var owners: [String: (identifier: String, name: String)] = [:]
 
         switch definition.match {
         case .wholeRoot:
@@ -90,6 +117,11 @@ struct RuleScanner: Sendable {
 
         case .namedChildren(let names):
             candidates = directories(in: root).filter { names.contains($0.lastPathComponent) }
+
+        case .childrenWithPrefix(let prefixes):
+            candidates = directories(in: root).filter { child in
+                prefixes.contains { child.lastPathComponent.hasPrefix($0) }
+            }
 
         case .filesWithExtension(let ext):
             guard let enumerator = FileManager.default.enumerator(
@@ -103,6 +135,39 @@ struct RuleScanner: Sendable {
                 if Task.isCancelled { return [] }
                 guard file.pathExtension.caseInsensitiveCompare(ext) == .orderedSame else { continue }
                 candidates.append(file)
+            }
+
+        case .downloadedCloudFiles:
+            let keys: [URLResourceKey] = [
+                .isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey, .isRegularFileKey,
+            ]
+            guard let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: keys,
+                options: [],
+                errorHandler: { _, _ in true }
+            ) else { return [] }
+
+            for case let file as URL in enumerator {
+                if Task.isCancelled { return [] }
+                guard let values = try? file.resourceValues(forKeys: Set(keys)) else { continue }
+                guard values.isRegularFile == true, values.isUbiquitousItem == true else { continue }
+                // `.notDownloaded` items are placeholders that occupy nothing
+                // locally, so there is no space to reclaim from them.
+                let status = values.ubiquitousItemDownloadingStatus
+                guard status == .current || status == .downloaded else { continue }
+                candidates.append(file)
+            }
+
+        case .orphanedSupport(let scope):
+            let kind: Orphan.Kind = scope == .application ? .application : .tool
+            for orphan in OrphanStore.standard().orphans(kind: kind) {
+                if Task.isCancelled { return [] }
+                let name = OrphanStore.readableName(for: orphan.identifier)
+                for path in orphan.paths {
+                    candidates.append(path)
+                    owners[path.path] = (orphan.identifier, name)
+                }
             }
         }
 
@@ -125,8 +190,20 @@ struct RuleScanner: Sendable {
             guard !isExcluded(candidate) else { continue }
 
             let reading = DiskMeasure.measure(candidate) { Task.isCancelled }
-            guard reading.allocatedSize > 0 || reading.fileCount > 0 else { continue }
-            matches.append(Match(url: candidate, reading: reading))
+            // A match whose contents could not be read measures as nothing.
+            // Dropping it here would make unreadable content disappear from the
+            // scan without a trace, which is the one thing a size must not do.
+            guard reading.allocatedSize > 0 || reading.fileCount > 0 || reading.encounteredDenial
+            else { continue }
+            let owner = owners[candidate.path]
+            matches.append(
+                Match(
+                    url: candidate,
+                    reading: reading,
+                    owner: owner?.identifier,
+                    ownerName: owner?.name
+                )
+            )
         }
         return matches
     }
@@ -157,6 +234,13 @@ struct RuleScanner: Sendable {
                 if url.pathExtension.caseInsensitiveCompare(ext) == .orderedSame { return true }
             case .nameSuffix(let suffix):
                 if url.lastPathComponent.hasSuffix(suffix) { return true }
+            case .bundleIdentifierNames:
+                // Owned by the rules that match by identifier. Without this a
+                // folder sweep and an orphan rule would both claim the same
+                // bytes, and the total would count them twice.
+                var name = url.lastPathComponent
+                if name.hasSuffix(".plist") { name = String(name.dropLast(6)) }
+                if BundleIdentifier.isWellFormed(name) { return true }
             }
         }
         return false
@@ -231,7 +315,38 @@ struct RuleScanner: Sendable {
             action: definition.action,
             privilege: definition.privilege,
             explanation: definition.explanation,
-            status: definition.status
+            status: definition.status,
+            wasPartlyUnreadable: reading.encounteredDenial,
+            holdsAuthoredWork: definition.holdsAuthoredWork
+        )
+    }
+
+    /// One finding for everything an uninstalled app left behind, across every
+    /// folder it wrote to.
+    private func makeOwnerFinding(from matches: [Match], owner: String) -> Finding? {
+        let reading = matches.map(\.reading).reduce(SizeReading(), +)
+        guard reading.allocatedSize > 0, let first = matches.first else { return nil }
+
+        let places = matches.count == 1 ? "1 place" : "\(matches.count) places"
+        return Finding(
+            id: "\(definition.id).\(owner)",
+            ruleID: definition.id,
+            category: definition.category,
+            displayName: first.ownerName ?? owner,
+            // The identifier goes in the subtitle: the app is not here to ask
+            // for its real name, so a guessed one is never the only evidence.
+            subtitle: "\(owner) · left behind in \(places)",
+            paths: matches.map(\.url),
+            fileCount: reading.fileCount,
+            allocatedSize: reading.allocatedSize,
+            lastUsed: reading.newestModification,
+            grade: definition.grade,
+            action: definition.action,
+            privilege: definition.privilege,
+            explanation: definition.explanation,
+            status: definition.status,
+            wasPartlyUnreadable: reading.encounteredDenial,
+            holdsAuthoredWork: definition.holdsAuthoredWork
         )
     }
 
@@ -251,7 +366,9 @@ struct RuleScanner: Sendable {
             action: definition.action,
             privilege: definition.privilege,
             explanation: definition.explanation,
-            status: definition.status
+            status: definition.status,
+            wasPartlyUnreadable: match.reading.encounteredDenial,
+            holdsAuthoredWork: definition.holdsAuthoredWork
         )
     }
 
@@ -269,11 +386,12 @@ struct RuleScanner: Sendable {
 
     private func subtitle(for reading: SizeReading) -> String {
         switch definition.subtitleStyle {
-        case .lastModified:
+        case .lastModified, .lastUsed:
             guard let modified = reading.newestModification else { return "no recorded activity" }
             let relative = RelativeDateTimeFormatter()
             relative.unitsStyle = .full
-            return "last built \(relative.localizedString(for: modified, relativeTo: Date()))"
+            let verb = definition.subtitleStyle == .lastUsed ? "last used" : "last built"
+            return "\(verb) \(relative.localizedString(for: modified, relativeTo: Date()))"
 
         case .fileCount:
             let files = reading.fileCount

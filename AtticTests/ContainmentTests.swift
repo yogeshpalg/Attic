@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import MyApp
+@testable import Untitled_Project
 
 /// Invariant 2. These are the tests that must fail the build rather than merely
 /// log at runtime: if a scanner can emit a path outside its declared root, every
@@ -116,13 +116,43 @@ struct DenylistTests {
         #expect(Denylist.permits(assistant.appending(path: "ClaudeAgentConfig/projects/p/session.jsonl")))
     }
 
-    @Test("No shipped rule is rooted at a denylisted path")
-    func noShippedRuleTargetsDeniedRoot() {
-        for rule in Catalogue.xcode {
+    @Test("No shipped rule looks inside a denylisted path")
+    func noShippedRuleScansADeniedRoot() {
+        for rule in Catalogue.all {
             #expect(
-                Denylist.permits(rule.root.url),
-                "rule \(rule.id) is rooted at a denylisted path"
+                Denylist.scanRejection(for: rule.root.url) == nil,
+                "rule \(rule.id) is rooted inside a denylisted path"
             )
         }
+    }
+
+    @Test("No shipped rule offers a denylisted path as the thing it removes")
+    func noShippedWholeRootRuleTargetsADeniedPath() {
+        // A `wholeRoot` rule's root is the item it offers, so for those the
+        // stricter check applies: it must clear the denylist in both directions.
+        for rule in Catalogue.all where rule.match == .wholeRoot {
+            #expect(
+                Denylist.permits(rule.root.url),
+                "rule \(rule.id) offers a denylisted path"
+            )
+        }
+    }
+
+    @Test("Scanning above a protected path is allowed; removing it is not")
+    func scanningAboveAProtectedPathIsAllowed() {
+        let library = home.appending(path: "Library")
+
+        // ~/Library holds the device backups, so it can never be removed — but a
+        // rule has to be able to look through it to find anything at all.
+        #expect(Denylist.scanRejection(for: library) == nil)
+        #expect(Denylist.permits(library) == false)
+
+        // Rooted *inside* a protected path stays refused, and nothing is read.
+        #expect(Denylist.scanRejection(for: home.appending(path: "Documents")) != nil)
+        #expect(
+            Denylist.scanRejection(
+                for: home.appending(path: "Library/Application Support/MobileSync/Backup/abc")
+            ) != nil
+        )
     }
 }

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Two full rows of storage, drawn as the same capsules the app uses for its
+       capacity bar. The mark and the interface are then the same idea at two
+       sizes. -->
+  <g fill="#1D4E6E">
+    <rect x="336" y="344" width="352" height="64" rx="32"/>
+    <rect x="336" y="452" width="352" height="64" rx="32"/>
+  </g>
+</svg>

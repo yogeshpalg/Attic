@@ -56,8 +56,13 @@ struct ScanEngine: Sendable {
         switch definition.match {
         case .wholeRoot: 0
         case .namedChildren: 1
+        case .childrenWithPrefix: 1
         case .immediateChildren: 1
         case .filesWithExtension: 2
+        // A recursive walk that also reads two cloud resource values per file.
+        case .downloadedCloudFiles: 3
+        // Ten shallow listings, then a LaunchServices lookup per candidate.
+        case .orphanedSupport: 2
         }
     }
 }

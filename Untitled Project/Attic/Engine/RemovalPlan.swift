@@ -7,6 +7,8 @@ enum PlannedOperation: Sendable, Equatable {
     case trash(url: URL, bytes: Int64)
     case run(KnownCommand)
     case reveal(url: URL)
+    /// Drop the local copy of a file that stays in iCloud.
+    case evict(url: URL, bytes: Int64)
     /// A path that passed every gate during the scan and fails one now.
     case refuse(path: String, reason: RejectionReason)
     /// Gone between the scan and the plan. Common with DerivedData.
@@ -22,6 +24,8 @@ enum PlannedOperation: Sendable, Equatable {
             "RUN      \(command.displayForm)"
         case .reveal(let url):
             "REVEAL   \(url.path)"
+        case .evict(let url, let bytes):
+            "EVICT    \(ByteFormat.string(bytes))\t\(url.path)"
         case .refuse(let path, let reason):
             "REFUSE   \(reason.message)\t\(path)"
         case .missing(let path):
@@ -29,6 +33,23 @@ enum PlannedOperation: Sendable, Equatable {
         case .resized(let url, let scanned, let actual):
             "RESIZED  scanned \(ByteFormat.string(scanned)), now \(ByteFormat.string(actual))\t\(url.path)"
         }
+    }
+}
+
+/// The two gates every path passes before anything happens to it: it must sit
+/// inside the root its own rule declared, and it must clear the compiled denylist.
+///
+/// Deliberately shared by the planner and the executor, and deliberately run
+/// twice. A person reads the explanations between those two moments, and Xcode
+/// keeps writing while they do.
+enum RemovalGate {
+
+    static func rejection(for path: URL, root: URL?) -> RejectionReason? {
+        guard let root else { return .outsideDeclaredRoot }
+        guard PathContainment.contains(root: root, candidate: path) else {
+            return .outsideDeclaredRoot
+        }
+        return Denylist.rejection(for: path)
     }
 }
 
@@ -51,6 +72,7 @@ struct RemovalPlan: Sendable {
         operations.reduce(0) { total, operation in
             switch operation {
             case .trash(_, let bytes): total + bytes
+            case .evict(_, let bytes): total + bytes
             case .resized(_, _, let actual): total + actual
             default: total
             }
@@ -87,21 +109,12 @@ struct RemovalPlan: Sendable {
                 operations.append(.run(command))
 
             case .trash:
-                guard let root = rootsByRule[finding.ruleID] else {
-                    // No catalogue entry means no declared root, so containment
-                    // cannot be verified and the path is refused outright.
-                    operations.append(contentsOf: finding.paths.map {
-                        .refuse(path: $0.path, reason: .outsideDeclaredRoot)
-                    })
-                    continue
-                }
+                let root = rootsByRule[finding.ruleID]
 
                 for path in finding.paths {
-                    guard PathContainment.contains(root: root, candidate: path) else {
-                        operations.append(.refuse(path: path.path, reason: .outsideDeclaredRoot))
-                        continue
-                    }
-                    if let rejection = Denylist.rejection(for: path) {
+                    // No catalogue entry means no declared root, so containment
+                    // cannot be verified and the path is refused outright.
+                    if let rejection = RemovalGate.rejection(for: path, root: root) {
                         operations.append(.refuse(path: path.path, reason: rejection))
                         continue
                     }
@@ -117,6 +130,26 @@ struct RemovalPlan: Sendable {
                     } else {
                         operations.append(.trash(url: path, bytes: fresh))
                     }
+                }
+
+            case .evictCloudCopy:
+                let root = rootsByRule[finding.ruleID]
+
+                // The same gates as a removal. Evicting is reversible, but it is
+                // still the app reaching into a path it was told to stay out of
+                // if containment or the denylist is wrong.
+                for path in finding.paths {
+                    if let rejection = RemovalGate.rejection(for: path, root: root) {
+                        operations.append(.refuse(path: path.path, reason: rejection))
+                        continue
+                    }
+                    guard FileManager.default.fileExists(atPath: path.path) else {
+                        operations.append(.missing(path: path.path))
+                        continue
+                    }
+                    operations.append(
+                        .evict(url: path, bytes: DiskMeasure.measure(path).allocatedSize)
+                    )
                 }
             }
         }

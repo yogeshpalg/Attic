@@ -18,6 +18,7 @@
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Untitled Project.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Untitled Project.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EC5FB9F4305A325A001985F4 /* Untitled-Project-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Untitled-Project-Info.plist"; sourceTree = "<group>"; };
 		ECF5C01E305A19A000D4F0A1 /* AtticTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtticTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -51,6 +52,7 @@
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				EC5FB9F4305A325A001985F4 /* Untitled-Project-Info.plist */,
 				000000000000000000000010 /* Untitled Project */,
 				ECF5C01F305A19A000D4F0A1 /* AtticTests */,
 				000000000000000000000020 /* Products */,
@@ -324,6 +326,9 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Untitled-Project-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Attic;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Aeshar Tech Inc. All rights reserved.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -347,6 +352,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Untitled Project/Attic/Engine/AtticBridge.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
@@ -363,6 +369,9 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Untitled-Project-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Attic;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 Aeshar Tech Inc. All rights reserved.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -386,6 +395,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Untitled Project/Attic/Engine/AtticBridge.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
@@ -412,7 +422,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MyApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Untitled Project.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Untitled Project";
 				XROS_DEPLOYMENT_TARGET = 27.0;
 			};
 			name = Debug;
@@ -437,7 +447,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MyApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Untitled Project.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Untitled Project";
 				XROS_DEPLOYMENT_TARGET = 27.0;
 			};
 			name = Release;

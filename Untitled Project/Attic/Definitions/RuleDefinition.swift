@@ -28,8 +28,37 @@ enum MatchSpec: Codable, Sendable, Equatable {
     /// per-project folders with shared caches that need different copy and a
     /// different retention rule.
     case namedChildren([String])
+    /// Immediate children whose name begins with one of these.
+    ///
+    /// Still not a pattern engine — a prefix cannot widen a rule's blast radius
+    /// the way a glob can. It exists because Apple names each macOS installer
+    /// after its release, so an exact list would go stale the day the next one
+    /// ships, and a stale list quietly stops finding fifteen gigabytes.
+    case childrenWithPrefix([String])
     /// Every file anywhere beneath the root with this extension.
     case filesWithExtension(String)
+    /// Every file beneath the root that lives in iCloud and also has a copy on
+    /// this Mac. Matching on a resource value rather than a name, because
+    /// "is it taking up local space" is not something a path can tell you.
+    case downloadedCloudFiles
+    /// Support files whose owner is no longer on the Mac. Matched by bundle
+    /// identifier rather than by path, so this one asks LaunchServices rather
+    /// than the filesystem whether the owner is still around. The kind decides
+    /// whether an app's leftovers or a tool's caches are wanted, which are two
+    /// different things to say to someone.
+    case orphanedSupport(OrphanScope)
+}
+
+/// Mirrors `SystemSupport.Architecture` in a form a definition can carry.
+enum ArchitectureScope: String, Codable, Sendable {
+    case appleSilicon
+    case intel
+}
+
+/// Mirrors `Orphan.Kind` in a form a definition can carry.
+enum OrphanScope: String, Codable, Sendable {
+    case application
+    case tool
 }
 
 /// Typed exclusions, for the same reason as `MatchSpec`.
@@ -38,6 +67,10 @@ enum ExcludeRule: Codable, Sendable, Equatable {
     case pathComponent(String)
     case fileExtension(String)
     case nameSuffix(String)
+    /// Anything named after a bundle identifier. These belong to the rules that
+    /// match by identifier, and this is what keeps a folder sweep from claiming
+    /// the same bytes twice.
+    case bundleIdentifierNames
 }
 
 enum Grouping: String, Codable, Sendable {
@@ -45,6 +78,10 @@ enum Grouping: String, Codable, Sendable {
     case single
     /// One finding per match.
     case perMatch
+    /// One finding per owning thing, for matches that know who they belong to.
+    /// Leftovers from one uninstalled app are scattered across nine folders and
+    /// are one decision, not nine.
+    case perOwner
 }
 
 /// Which matches a rule declines to offer even though they matched. Whatever is
@@ -71,7 +108,12 @@ enum Applicability: Codable, Sendable, Equatable {
 /// How the subtitle is phrased. Copy stays data-driven rather than hardcoded
 /// per scanner, so a definition update can change wording without a code change.
 enum SubtitleStyle: String, Codable, Sendable {
+    /// "last built …" — for build output, where the date is a build.
     case lastModified
+    /// "last used …" — for a cache, where the date is the last time anything
+    /// touched it. Saying "last built" about Logic's cache was Xcode's language
+    /// escaping into rules that have nothing to do with building.
+    case lastUsed
     case fileCount
     case supersededBuild
 }
@@ -82,6 +124,25 @@ struct RuleDefinition: Codable, Sendable, Identifiable, Equatable {
     let id: String
     /// Rules can ship ahead of the app that understands them.
     let minAppVersion: String
+    /// The oldest macOS this rule is correct for, if it is not correct for all
+    /// of them. Apple moves things between releases — a cache that lived in one
+    /// folder on Sequoia may live in another on Tahoe — and a rule pointed at
+    /// the wrong one either finds nothing or, worse, finds something else.
+    ///
+    /// Left empty for every rule whose location has been stable, which is most
+    /// of them. A version is stated only where the truth actually changed.
+    var minOSVersion: String?
+    /// The last macOS this rule is correct for. Set when a location is retired,
+    /// so the rule goes quiet on newer systems instead of guessing.
+    var maxOSVersion: String?
+    /// Which Macs a rule applies to, when it does not apply to both.
+    ///
+    /// Left empty for almost everything: a cache is a cache on either
+    /// architecture. It exists because some locations only exist on one — the
+    /// Rosetta translation cache and the on-device model assets are Apple
+    /// silicon only, and a rule for either on an Intel Mac would report
+    /// "found nothing" about a folder that was never going to be there.
+    var architecture: ArchitectureScope?
     let category: Category
     let displayName: String
     let root: PathSpec
@@ -94,6 +155,15 @@ struct RuleDefinition: Codable, Sendable, Identifiable, Equatable {
     let action: RemovalAction
     let privilege: Privilege
     let grade: SafetyGrade
-    let status: RuleStatus
+    /// True when what this rule matches is *authored* — history somebody
+    /// accumulated, or an artefact built locally that exists nowhere else.
+    ///
+    /// A cache is safe because the tool rebuilds it. Conversation history with a
+    /// coding assistant is not a cache: nothing regenerates it, and losing it
+    /// costs the context behind however many projects it covered. Rules marked
+    /// here are not offered at all while "Protect my work" is on, which it is
+    /// by default.
+    var holdsAuthoredWork: Bool = false
+    var status: RuleStatus
     let explanation: Explanation
 }
