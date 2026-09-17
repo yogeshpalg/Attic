@@ -307,8 +307,28 @@ private struct Sidebar: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
-                Text("Free and open source")
-                    .foregroundStyle(.tint)
+                // The line that was already here, now load-bearing when the
+                // links exist: the source and the place to support the work,
+                // where somebody actually looks — rather than only in a panel
+                // nobody opens twice.
+                HStack(spacing: 6) {
+                    if let source = AtticLinks.source {
+                        Link("Free and open source", destination: source)
+                            .foregroundStyle(.tint)
+                    } else {
+                        Text("Free and open source")
+                            .foregroundStyle(.tint)
+                    }
+
+                    if let support = AtticLinks.support {
+                        Text("·").foregroundStyle(.tertiary)
+                        // Never "Donate". The app is free and says so; this is
+                        // an invitation, and a nag would undercut every other
+                        // honest thing in here.
+                        Link("Support", destination: support)
+                            .foregroundStyle(.tint)
+                    }
+                }
             }
         .font(.caption)
         .foregroundStyle(.secondary)

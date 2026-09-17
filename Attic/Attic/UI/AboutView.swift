@@ -10,14 +10,6 @@ import UniformTypeIdentifiers
 /// buried in a repository.
 struct AboutView: View {
 
-    /// Filled in once these exist. Rendered only when set, so a build never
-    /// ships a button that opens a dead page.
-    private enum Link {
-        static let source = ""
-        static let issues = ""
-        static let support = ""
-    }
-
     private let store = DefinitionStore()
     private let definitions = RemoteDefinitionSource()
     private let customDefinitions = CustomDefinitionStore()
@@ -383,22 +375,21 @@ struct AboutView: View {
 
     private var links: some View {
         HStack(spacing: 14) {
-            if let url = URL(string: Link.source), !Link.source.isEmpty {
+            if let url = AtticLinks.source {
                 SwiftUI.Link("Source code", destination: url)
             }
-            if let url = URL(string: Link.issues), !Link.issues.isEmpty {
+            if let url = AtticLinks.issues {
                 SwiftUI.Link("Report an issue", destination: url)
             }
-            if let url = URL(string: Link.support), !Link.support.isEmpty {
+            if let url = AtticLinks.support {
+                // An invitation, not a toll: the app is free and says so.
                 SwiftUI.Link("Support development", destination: url)
             }
         }
         .font(.system(size: 12, weight: .medium))
     }
 
-    private var hasAnyLink: Bool {
-        !(Link.source.isEmpty && Link.issues.isEmpty && Link.support.isEmpty)
-    }
+    private var hasAnyLink: Bool { AtticLinks.hasAny }
 
     // MARK: - Bundle facts
 

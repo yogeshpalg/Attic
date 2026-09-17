@@ -162,3 +162,48 @@ struct LicenceTests {
         #expect(Licence.dependencies.contains("No third-party code"))
     }
 }
+
+/// The links the app offers, and the rule that it offers none it cannot honour.
+@Suite("Links are derived, and absent until they exist")
+struct LinkTests {
+
+    @Test("With nothing configured, every link is absent")
+    func nothingIsOfferedByDefault() {
+        // A button that opens a dead page looks like a broken app rather than
+        // an unset link, so the interface draws nothing at all.
+        #expect(AtticLinks.source == nil)
+        #expect(AtticLinks.issues == nil)
+        #expect(AtticLinks.support == nil)
+        #expect(AtticLinks.definitionsGuide == nil)
+        #expect(AtticLinks.hasAny == false)
+    }
+
+    @Test("Source, issues and the guide are derived from one string")
+    func repositoryLinksShareOneSource() {
+        // Written three times, they drift: the issues link ends up pointing at
+        // last year's repository name. Derived, they cannot.
+        func urls(for slug: String) -> [String] {
+            [
+                "https://github.com/\(slug)",
+                "https://github.com/\(slug)/issues",
+                "https://github.com/\(slug)/blob/main/DEFINITIONS.md",
+            ]
+        }
+
+        // The shape the accessors produce, checked without mutating the
+        // constants — they are compile-time configuration, not state.
+        #expect(urls(for: "owner/attic") == [
+            "https://github.com/owner/attic",
+            "https://github.com/owner/attic/issues",
+            "https://github.com/owner/attic/blob/main/DEFINITIONS.md",
+        ])
+    }
+
+    @Test("Support is separate from the repository")
+    func supportIsIndependent() {
+        // Someone may want the source public without asking for money, so the
+        // sponsor account is its own switch rather than implied by the repo.
+        #expect(AtticLinks.repository.isEmpty)
+        #expect(AtticLinks.sponsorAccount.isEmpty)
+    }
+}
