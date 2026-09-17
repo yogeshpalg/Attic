@@ -74,3 +74,11 @@ Releasing is documented in **[RELEASING.md](RELEASING.md)**.
 ## Licence
 
 MIT — see [LICENSE](LICENSE). Copyright © 2026 Yogesh Gahlot.
+
+Use it, change it, ship it, charge for it. The one thing the licence asks is that the copyright
+notice travels with every copy, which is why the app carries the full text in **About Attic →
+Read it** rather than leaving it behind in this repository. A binary you distribute honours the
+terms without you doing anything.
+
+Contributions are welcome and covered by the same licence — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Definitions are the most useful thing you can send.

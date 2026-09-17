@@ -30,6 +30,7 @@ struct AboutView: View {
     @State private var customMessage: String?
     @State private var isImporting = false
     @State private var isExporting = false
+    @State private var isShowingLicence = false
 
     private enum UpdateState: Equatable {
         case idle
@@ -121,13 +122,55 @@ struct AboutView: View {
 
     private var credit: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("Built by Yogesh Gahlot")
+            Text("Built by \(Licence.holder)")
                 .font(.system(size: 13, weight: .semibold))
             Text(copyright)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(.top, 2)
+
+            // The licence lives in the app, not only in the repository. MIT
+            // asks that the notice travel with every copy, and a LICENSE file
+            // left behind on GitHub is not part of the copy somebody
+            // downloaded.
+            HStack(spacing: 6) {
+                Text("\(Licence.name) licensed — free to use, modify and sell")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Read it") { isShowingLicence = true }
+                    .buttonStyle(.link)
+                    .font(.caption)
+            }
+            .padding(.top, 4)
         }
+        .sheet(isPresented: $isShowingLicence) { licenceSheet }
+    }
+
+    private var licenceSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Licence")
+                    .font(.headline)
+                Spacer()
+                Button("Done") { isShowingLicence = false }
+                    .keyboardShortcut(.defaultAction)
+            }
+
+            ScrollView {
+                Text(Licence.text)
+                    .font(.system(size: 11, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(height: 260)
+
+            Text(Licence.dependencies)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(20)
+        .frame(width: 460)
     }
 
     /// The honest version of "it knows where to look": the release it is running
@@ -382,8 +425,7 @@ struct AboutView: View {
     }
 
     private var copyright: String {
-        Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String
-            ?? "© Yogesh Gahlot"
+        Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String ?? Licence.notice
     }
 }
 

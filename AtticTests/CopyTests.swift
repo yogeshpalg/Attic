@@ -103,3 +103,62 @@ struct ByteFormatTests {
         #expect(formatted.contains("MB"))
     }
 }
+
+/// The licence, and the credit it carries.
+///
+/// MIT permits nearly everything and asks one thing in return: that the
+/// copyright notice travels with every copy. For a binary that means the app
+/// must be able to show it — a LICENSE file left in a repository is not part of
+/// the copy somebody downloaded. These tests are what keep that honest.
+@Suite("The licence travels with the app")
+struct LicenceTests {
+
+    @Test("The app carries the full licence text, not a summary")
+    func fullTextIsPresent() {
+        // A paraphrase would not satisfy the notice requirement, and would
+        // quietly change the terms somebody is relying on.
+        #expect(Licence.text.contains("Permission is hereby granted"))
+        #expect(Licence.text.contains("WITHOUT WARRANTY OF ANY KIND"))
+        #expect(Licence.text.contains("shall be included in all"))
+    }
+
+    @Test("The notice names the holder, which is the whole point of the licence")
+    func noticeNamesTheHolder() {
+        // Credit is the one thing the licence asks for. If this stops matching,
+        // the app is distributing itself without the attribution it requires.
+        #expect(Licence.notice.contains(Licence.holder))
+        #expect(Licence.text.contains(Licence.holder))
+        #expect(Licence.text.contains(Licence.year))
+    }
+
+    @Test("The in-app text agrees with the LICENSE file on every term")
+    func inAppTextMatchesTheFile() throws {
+        // Two copies of a licence that disagree is worse than one: nobody knows
+        // which set of terms applies. Compared word by word rather than
+        // character by character, because the in-app copy is rewrapped.
+        let repository = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // AtticTests
+            .deletingLastPathComponent()   // repository root
+            .appending(path: "LICENSE")
+
+        guard let file = try? String(contentsOf: repository, encoding: .utf8) else {
+            // Running from somewhere the source tree is not, which is fine —
+            // the checks above still hold.
+            return
+        }
+
+        func words(_ text: String) -> [String] {
+            text.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        }
+
+        #expect(words(file) == words(Licence.text))
+    }
+
+    @Test("The dependency statement is true of this build")
+    func dependencyStatementIsTrue() {
+        // There are no Swift packages and no vendored source, which is why the
+        // acknowledgements are one sentence. If a dependency is ever added,
+        // this sentence becomes a lie and needs rewriting.
+        #expect(Licence.dependencies.contains("No third-party code"))
+    }
+}
