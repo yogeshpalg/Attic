@@ -44,6 +44,23 @@ enum Licence {
         SOFTWARE.
         """
 
+    /// What the licence does not cover.
+    ///
+    /// MIT is a copyright licence and says nothing about names. It grants the
+    /// right to copy, change and sell the *code* — not the right to call the
+    /// result Attic, or to use the mark in a way that suggests the author
+    /// stands behind it. Apache 2.0 spells this out in its own section; MIT
+    /// leaves it to be said, so it is said here and in the README.
+    ///
+    /// This is not a restriction on forking. Fork it, sell it, rename it. The
+    /// ask is a different name on the result, which is the same thing the
+    /// copyright notice asks for: that credit stays attached to who did what.
+    static let trademark = """
+        The MIT licence covers the source. The name "Attic" and the app's mark \
+        are not part of that grant: a fork is welcome, under its own name, \
+        without implying the author endorses it.
+        """
+
     /// What the app is built on, and nothing else.
     ///
     /// There are no third-party dependencies: no Swift packages, no vendored

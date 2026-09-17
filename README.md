@@ -82,3 +82,12 @@ terms without you doing anything.
 
 Contributions are welcome and covered by the same licence — see [CONTRIBUTING.md](CONTRIBUTING.md).
 Definitions are the most useful thing you can send.
+
+### Name and mark
+
+MIT is a copyright licence and says nothing about names, so this does: the licence covers the
+**source**. The name *Attic* and the app's mark are not part of that grant — fork it and sell it,
+under its own name, without implying the author endorses the result.
+
+That is not a restriction on forking. It is the same thing the copyright notice asks for: that
+credit stays attached to who did what.

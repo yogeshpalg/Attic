@@ -154,6 +154,18 @@ struct LicenceTests {
         #expect(words(file) == words(Licence.text))
     }
 
+    @Test("The app states what the licence does not cover")
+    func trademarkIsStated() {
+        // MIT grants rights to the code and says nothing about names. Leaving
+        // that unsaid is how a fork ends up shipping as "Attic" with the
+        // author's mark on it, which is the one outcome the author minds.
+        #expect(Licence.trademark.contains("Attic"))
+        #expect(Licence.trademark.contains("own name"))
+        // Said as an invitation with a condition, not as a threat: forking is
+        // the point of the licence.
+        #expect(Licence.trademark.contains("welcome"))
+    }
+
     @Test("The dependency statement is true of this build")
     func dependencyStatementIsTrue() {
         // There are no Swift packages and no vendored source, which is why the

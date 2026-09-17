@@ -157,9 +157,15 @@ struct AboutView: View {
             }
             .frame(height: 260)
 
-            Text(Licence.dependencies)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(Licence.trademark)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(Licence.dependencies)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding(20)
         .frame(width: 460)
