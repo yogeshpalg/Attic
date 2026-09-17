@@ -2,9 +2,11 @@
 #
 # Builds, signs, notarizes and packages Attic for direct distribution.
 #
-#   Tools/release.sh            build, notarize, staple, package
-#   Tools/release.sh --check    report what is missing and stop
-#   Tools/release.sh --no-notarize   build and package without notarizing
+#   Tools/release.sh              build, notarize, staple, package
+#   Tools/release.sh --check      report what is missing and stop
+#   Tools/release.sh --no-notarize    build and package without notarizing
+#   Tools/release.sh --friends    a DMG to hand to someone you know, signed
+#                                 with whatever certificate is available
 #
 # Every step verifies its own result rather than assuming the previous one
 # worked: an unsigned or un-stapled build that reaches somebody else shows
@@ -26,10 +28,14 @@ APP="$EXPORT_DIR/$APP_NAME.app"
 
 NOTARIZE=1
 CHECK_ONLY=0
+FRIENDS=0
 for argument in "$@"; do
     case "$argument" in
         --check) CHECK_ONLY=1 ;;
         --no-notarize) NOTARIZE=0 ;;
+        # For handing to people who know you and will click through one
+        # warning. Not for publishing: see the note it prints at the end.
+        --friends) FRIENDS=1; NOTARIZE=0 ;;
         *) echo "unknown option: $argument" >&2; exit 2 ;;
     esac
 done
@@ -52,11 +58,15 @@ echo "version:        $VERSION ($BUILD_NUMBER)"
 # Gatekeeper then refuses, which is a confusing way to find out.
 IDENTITY=$(security find-identity -v -p codesigning \
     | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)
-if [ -z "$IDENTITY" ]; then
+if [ -n "$IDENTITY" ]; then
+    echo "signing:        $IDENTITY"
+elif [ "$FRIENDS" = 1 ]; then
+    # Whatever automatic signing produces. Good enough for a build that goes
+    # to three people who will be told what to expect.
+    echo "signing:        no Developer ID — using automatic signing"
+else
     echo "signing:        MISSING — no Developer ID Application certificate"
     MISSING=1
-else
-    echo "signing:        $IDENTITY"
 fi
 
 if [ "$NOTARIZE" = 1 ]; then
@@ -105,12 +115,21 @@ cat > "$BUILD_DIR/export-options.plist" <<PLIST
 </plist>
 PLIST
 
-step "Exporting with Developer ID"
-xcodebuild -exportArchive -archivePath "$ARCHIVE" \
-    -exportOptionsPlist "$BUILD_DIR/export-options.plist" \
-    -exportPath "$EXPORT_DIR" -quiet
+if [ "$FRIENDS" = 1 ] && [ -z "$IDENTITY" ]; then
+    step "Taking the app straight out of the archive"
+    # `-exportArchive -method developer-id` needs the certificate that is not
+    # here. The archived app is already Release-built and hardened, so it is
+    # copied rather than re-exported.
+    mkdir -p "$EXPORT_DIR"
+    cp -R "$ARCHIVE/Products/Applications/$APP_NAME.app" "$EXPORT_DIR/"
+else
+    step "Exporting with Developer ID"
+    xcodebuild -exportArchive -archivePath "$ARCHIVE" \
+        -exportOptionsPlist "$BUILD_DIR/export-options.plist" \
+        -exportPath "$EXPORT_DIR" -quiet
+fi
 
-[ -d "$APP" ] || fail "the export produced no app"
+[ -d "$APP" ] || fail "no app was produced"
 
 # ---------------------------------------------------------------- verify
 
@@ -119,10 +138,15 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 
 # Hardened runtime is a notarization requirement, and it is set on Release
 # only — so this is also the check that the archive really used Release.
-if ! codesign -d --verbose=4 "$APP" 2>&1 | grep -q "flags=0x10000(runtime)"; then
-    fail "the app is not built with the hardened runtime"
-fi
-echo "hardened runtime: present"
+#
+# Captured into a variable rather than piped into `grep -q`: grep exits at the
+# first match, codesign takes SIGPIPE, and `pipefail` then reports the whole
+# pipeline as failed — which made this check reject a perfectly good build.
+SIGNATURE=$(codesign -d --verbose=4 "$APP" 2>&1 || true)
+case "$SIGNATURE" in
+    *"flags=0x10000(runtime)"*) echo "hardened runtime: present" ;;
+    *) fail "the app is not built with the hardened runtime" ;;
+esac
 
 # ---------------------------------------------------------------- notarize
 
@@ -162,6 +186,25 @@ fi
 step "Done"
 echo "$DMG"
 ls -lh "$DMG" | awk '{print "size:", $5}'
-echo ""
-echo "Before publishing, run it on: an Intel Mac, a Mac with no Xcode or"
-echo "Homebrew, and an account with Full Disk Access denied. See RELEASING.md."
+
+if [ "$FRIENDS" = 1 ]; then
+    cat <<'NOTE'
+
+This build is NOT notarized. Whoever opens it will see:
+
+    "Apple could not verify Attic is free of malware."
+
+To get past it once, on macOS 15 and later — Control-clicking no longer
+works, Apple removed that:
+
+    System Settings → Privacy & Security → scroll down → Open Anyway
+
+Tell them that before you send it, or the first thing your app says to
+them is a security warning with no explanation.
+
+NOTE
+else
+    echo ""
+    echo "Before publishing, run it on: an Intel Mac, a Mac with no Xcode or"
+    echo "Homebrew, and an account with Full Disk Access denied. See RELEASING.md."
+fi
