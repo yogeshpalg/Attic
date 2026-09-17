@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 22. macOS has no uninstaller and no API for one: an app is a bundle,
 /// and removing it means moving that bundle and the files it wrote under its own

@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 13. Every string the app puts on screen has to be true of the thing
 /// it describes. The interesting failures here are not crashes: they are a row
@@ -77,7 +77,7 @@ struct ActionCopyTests {
         for grade in SafetyGrade.allCases {
             #expect(grade.label.isEmpty == false)
         }
-        for category in Untitled_Project.Category.allCases {
+        for category in Attic.Category.allCases {
             #expect(category.title.isEmpty == false)
             #expect(category.title.contains("/") == false)
         }

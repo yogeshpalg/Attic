@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import Untitled_Project
+@testable import Attic
 
 /// Saying so when this Mac is not one of the Macs the rules were checked on.
 ///

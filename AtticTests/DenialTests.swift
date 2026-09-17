@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 20. A number that is quietly too small is worse than no number.
 /// Where a scan could not read part of what it measured, the figure is a floor,

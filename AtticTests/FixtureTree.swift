@@ -1,5 +1,5 @@
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// A throwaway directory tree the scanners can be pointed at.
 ///
@@ -68,7 +68,7 @@ extension RuleDefinition {
         minAppVersion: String = "1.0",
         minOSVersion: String? = nil,
         maxOSVersion: String? = nil,
-        category: Untitled_Project.Category = .developerXcode,
+        category: Attic.Category = .developerXcode,
         root: URL,
         match: MatchSpec = .immediateChildren,
         exclude: [ExcludeRule] = [],
@@ -120,7 +120,7 @@ extension Finding {
         ruleID: String = "test.rule",
         // Qualified: Foundation exposes a `Category` of its own, so the bare name
         // is ambiguous from inside the test target.
-        category: Untitled_Project.Category = .developerXcode,
+        category: Attic.Category = .developerXcode,
         displayName: String = "Fixture item",
         subtitle: String = "4 files",
         paths: [URL],

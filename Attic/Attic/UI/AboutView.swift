@@ -121,11 +121,8 @@ struct AboutView: View {
 
     private var credit: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("Built by Sonny")
+            Text("Built by Yogesh Gahlot")
                 .font(.system(size: 13, weight: .semibold))
-            Text("Aeshar Tech Inc.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
             Text(copyright)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -375,7 +372,7 @@ struct AboutView: View {
 
     private var copyright: String {
         Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String
-            ?? "© Aeshar Tech Inc."
+            ?? "© Yogesh Gahlot"
     }
 }
 

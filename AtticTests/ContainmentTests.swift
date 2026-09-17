@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 2. These are the tests that must fail the build rather than merely
 /// log at runtime: if a scanner can emit a path outside its declared root, every

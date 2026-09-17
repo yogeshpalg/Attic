@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import Untitled_Project
+@testable import Attic
 
 /// What a file somebody wrote themselves is allowed to do.
 ///

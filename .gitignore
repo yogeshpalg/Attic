@@ -1,0 +1,9 @@
+# Build output from Tools/release.sh
+build/
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+.DS_Store

@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 6. The number on screen is the number the user will check against
 /// `du`, so the walk has to agree with the filesystem — and where it cannot read

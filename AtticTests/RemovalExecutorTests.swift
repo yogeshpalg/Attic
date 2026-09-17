@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 15. This is the only code in Attic that can change the disk, so the
 /// gates run a third time here — after the scan, after the plan, immediately

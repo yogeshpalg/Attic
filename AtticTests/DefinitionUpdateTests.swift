@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 import Testing
 
-@testable import Untitled_Project
+@testable import Attic
 
 /// What a signature is actually for.
 ///

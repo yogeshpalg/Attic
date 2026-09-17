@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 9. The catalogue is the unit that will eventually be fetched from the
 /// public definitions repository rather than compiled in, so its integrity cannot

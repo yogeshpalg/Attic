@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 5. Whatever a rule declines to offer is *reported*, never silently
 /// dropped. The failure this defends against is the one described in

@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 14. Space macOS manages is reported inside Attic rather than left to
 /// System Settings — a cleaner that can see 68 GB and says nothing about it is

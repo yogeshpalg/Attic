@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import Untitled_Project
+@testable import Attic
 
 /// Rules that are only correct on one kind of Mac.
 ///

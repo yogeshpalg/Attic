@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 16. Removing anything is the user's act, never the app's. Nothing is
 /// ticked for them, a bulk action never reaches past what is graded safe, and a

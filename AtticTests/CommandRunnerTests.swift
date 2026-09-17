@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 18. Attic runs a closed set of commands and nothing else. The
 /// allowlist is an enum, so there is no path by which a definition — including

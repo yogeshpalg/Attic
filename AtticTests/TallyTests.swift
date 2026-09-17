@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 21. The lifetime counter records what Attic moved to the Trash,
 /// which is not the same as what came back: the Trash sits on the disk until the

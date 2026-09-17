@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 1. A rule may only ever emit paths that its own declaration reaches:
 /// inside the declared root, past the compiled denylist, and not excluded. These

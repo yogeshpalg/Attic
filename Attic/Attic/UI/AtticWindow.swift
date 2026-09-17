@@ -1832,7 +1832,7 @@ extension Finding {
     /// Preview-only. Kept beside the preview rather than in the test harness
     /// because the app target cannot see the test target's fixtures.
     fileprivate static func preview(
-        _ category: Untitled_Project.Category,
+        _ category: Attic.Category,
         _ name: String,
         _ subtitle: String,
         _ bytes: Int64,

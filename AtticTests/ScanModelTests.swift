@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 11. The view model is what turns a stream of events into the list a
 /// person reads, so its ordering and its totals are user-facing behaviour. These

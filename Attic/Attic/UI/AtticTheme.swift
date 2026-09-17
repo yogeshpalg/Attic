@@ -87,7 +87,7 @@ enum AtticTheme: String, CaseIterable, Identifiable, Sendable {
 
 // MARK: - Category colours
 
-extension Untitled_Project.Category {
+extension Attic.Category {
 
     /// The colour of a category's glyph in the list.
     ///

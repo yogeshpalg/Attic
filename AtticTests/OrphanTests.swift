@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 17. Finding leftovers from an app that is gone means deciding an app
 /// is gone, and that is the whole risk of the feature. Two guards carry it:

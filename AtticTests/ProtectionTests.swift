@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 23. A cache is safe because the tool rebuilds it. Conversation
 /// history with a coding assistant is not a cache — nothing regenerates it, and

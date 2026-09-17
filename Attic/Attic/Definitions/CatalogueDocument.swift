@@ -61,20 +61,18 @@ enum CatalogueCoding {
     }
 }
 
-/// The public half of the signing key, base64-encoded.
+/// The public half of the definitions signing key, base64-encoded.
 ///
-/// Empty in this build, which means every fetched catalogue is refused with
-/// `noTrustedKey` and Attic runs on its compiled rules. That is the correct
-/// failure: an unset key must not mean "accept anything".
+/// The private half lives outside this repository — `~/.attic-signing/` on the
+/// maintainer's machine, 0600 — and whoever holds it can ship rules to every
+/// copy of Attic. `Tools/sign-definitions.swift` is the only thing that touches
+/// it.
 ///
-/// To generate the pair, run this once and keep the private key offline —
-/// whoever holds it can ship rules to every copy of Attic:
-///
-///     let key = Curve25519.Signing.PrivateKey()
-///     key.rawRepresentation.base64EncodedString()           // secret, offline
-///     key.publicKey.rawRepresentation.base64EncodedString() // paste below
+/// An empty value here would mean every fetched catalogue is refused with
+/// `noTrustedKey`, which is the correct failure for a build with no key: it
+/// must never mean "accept anything". There is a test pinning that.
 enum TrustedKeys {
-    static let definitions = ""
+    static let definitions = "82RwraGm7yBM+NNV9F9wcrA5D2IRlwB1JqvPA83XfW8="
 }
 
 /// Where updates are fetched from. `nil` until the repository exists, and the UI

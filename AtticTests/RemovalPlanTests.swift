@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Untitled_Project
+@testable import Attic
 
 /// Invariant 7. The plan re-verifies everything rather than trusting the scan. A
 /// DerivedData scan can be minutes old by the time someone finishes reading the

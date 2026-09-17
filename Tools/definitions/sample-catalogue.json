@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "catalogueVersion": 2,
+  "published": "2026-09-17T00:00:00Z",
+  "rules": [
+    {
+      "id": "caches.example",
+      "minAppVersion": "1.0",
+      "category": "cachesAndLogs",
+      "displayName": "Example tool cache",
+      "root": { "home": { "_0": "Library/Caches/com.example.tool" } },
+      "match": { "wholeRoot": {} },
+      "exclude": [],
+      "grouping": "single",
+      "retention": { "none": {} },
+      "subtitleStyle": "fileCount",
+      "applicability": { "rootExists": {} },
+      "action": { "trash": {} },
+      "privilege": "user",
+      "grade": "safe",
+      "holdsAuthoredWork": false,
+      "status": "active",
+      "explanation": {
+        "whatThisIs": "A cache an example tool writes.",
+        "whatStopsWorking": "Nothing. It is rebuilt on next use.",
+        "doesItComeBack": "Yes, the next time the tool runs."
+      }
+    }
+  ]
+}
