@@ -409,8 +409,8 @@ struct GateTests {
         #expect(result.unavailable == [.emptyRoot])
     }
 
-    @Test("A root whose every match is excluded currently reports as empty")
-    func fullyExcludedRootReportsEmptyRoot() async throws {
+    @Test("A root whose every match is excluded says so, rather than 'empty'")
+    func fullyExcludedRootIsNotCalledEmpty() async throws {
         let tree = try FixtureTree()
         defer { tree.destroy() }
         try tree.file("ModuleCache.noindex/a.pcm")
@@ -423,10 +423,9 @@ struct GateTests {
             )
         ])
 
-        // Pinning current behaviour: the root is not empty, it is fully excluded,
-        // and `.emptyRoot` reads "the folder this looks in is empty". Known copy
-        // gap, recorded here so a future wording change is a deliberate one.
-        #expect(result.unavailable == [.emptyRoot])
+        // The folder holds a file. Reporting "the folder this looks in is
+        // empty" would send somebody looking for a problem that is not there.
+        #expect(result.unavailable == [.everythingExcluded])
     }
 }
 

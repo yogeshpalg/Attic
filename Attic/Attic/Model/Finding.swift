@@ -39,6 +39,11 @@ enum UnavailableReason: Sendable, Equatable {
     case softwareNotInstalled
     case rootMissing
     case emptyRoot
+    /// The folder had contents, and this rule's own exclusions removed all of
+    /// them. Distinct from `emptyRoot` because saying "the folder is empty"
+    /// about a folder full of files is simply untrue, and it sends someone
+    /// looking for a problem that is not there.
+    case everythingExcluded
     case permissionDenied
 
     var message: String {
@@ -46,6 +51,7 @@ enum UnavailableReason: Sendable, Equatable {
         case .softwareNotInstalled: "the software this looks for is not installed"
         case .rootMissing: "the folder this looks in does not exist on this Mac"
         case .emptyRoot: "the folder this looks in is empty"
+        case .everythingExcluded: "everything in that folder is excluded by this rule"
         case .permissionDenied: "macOS denied access — Full Disk Access would be needed"
         }
     }

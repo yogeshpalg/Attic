@@ -51,9 +51,15 @@ struct RuleScanner: Sendable {
             return
         }
 
-        let matches = gatherMatches(continuation: continuation)
+        var candidatesSeen = 0
+        let matches = gatherMatches(continuation: continuation, candidatesSeen: &candidatesSeen)
         guard !matches.isEmpty else {
-            continuation.yield(.unavailable(ruleID: definition.id, reason: .emptyRoot))
+            // An empty folder and a folder this rule excludes entirely are two
+            // different answers, and only one of them is "empty".
+            continuation.yield(.unavailable(
+                ruleID: definition.id,
+                reason: candidatesSeen > 0 ? .everythingExcluded : .emptyRoot
+            ))
             return
         }
 
@@ -104,7 +110,10 @@ struct RuleScanner: Sendable {
         var ownerName: String?
     }
 
-    private func gatherMatches(continuation: AsyncStream<ScanEvent>.Continuation) -> [Match] {
+    private func gatherMatches(
+        continuation: AsyncStream<ScanEvent>.Continuation,
+        candidatesSeen: inout Int
+    ) -> [Match] {
         var candidates: [URL] = []
         var owners: [String: (identifier: String, name: String)] = [:]
 
@@ -172,6 +181,10 @@ struct RuleScanner: Sendable {
         }
 
         var matches: [Match] = []
+        // Counted before any filtering, so the caller can tell "nothing there"
+        // from "everything there was excluded".
+        candidatesSeen = candidates.count
+
         for candidate in candidates {
             if Task.isCancelled { return matches }
 

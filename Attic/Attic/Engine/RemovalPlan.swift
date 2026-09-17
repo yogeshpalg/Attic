@@ -13,8 +13,13 @@ enum PlannedOperation: Sendable, Equatable {
     case refuse(path: String, reason: RejectionReason)
     /// Gone between the scan and the plan. Common with DerivedData.
     case missing(path: String)
-    /// Present but a different size than the scan reported.
-    case resized(url: URL, scanned: Int64, actual: Int64)
+    /// Trashed, but a different size than the scan reported.
+    ///
+    /// Carries both figures because the difference is the user's business: they
+    /// ticked a row saying 400 MB and 900 MB is about to move. The operation
+    /// still happens — a size change is not grounds to refuse something
+    /// somebody chose — and `bytes` is what will actually be removed.
+    case resized(url: URL, scanned: Int64, bytes: Int64)
 
     var loggedLine: String {
         switch self {
@@ -30,8 +35,8 @@ enum PlannedOperation: Sendable, Equatable {
             "REFUSE   \(reason.message)\t\(path)"
         case .missing(let path):
             "MISSING  \(path)"
-        case .resized(let url, let scanned, let actual):
-            "RESIZED  scanned \(ByteFormat.string(scanned)), now \(ByteFormat.string(actual))\t\(url.path)"
+        case .resized(let url, let scanned, let bytes):
+            "TRASH    \(ByteFormat.string(bytes))\t\(url.path)\t(scan said \(ByteFormat.string(scanned)))"
         }
     }
 }
@@ -64,7 +69,24 @@ struct RemovalPlan: Sendable {
 
     let operations: [PlannedOperation]
 
-    var trashOperations: [PlannedOperation] { operations.filter { if case .trash = $0 { true } else { false } } }
+    /// Everything that will be moved to the Trash, including paths whose size
+    /// changed since the scan. `resized` used to be left out of this list while
+    /// its bytes still counted toward `bytesStaged`, so the plan promised space
+    /// that nothing in it would actually reclaim.
+    var trashOperations: [PlannedOperation] {
+        operations.filter {
+            switch $0 {
+            case .trash, .resized: true
+            default: false
+            }
+        }
+    }
+
+    /// Paths that moved, but not at the size the row said. Surfaced so the
+    /// receipt can account for the difference instead of quietly absorbing it.
+    var resizedOperations: [PlannedOperation] {
+        operations.filter { if case .resized = $0 { true } else { false } }
+    }
     var refusals: [PlannedOperation] { operations.filter { if case .refuse = $0 { true } else { false } } }
 
     /// What would actually be staged, using freshly measured sizes.
@@ -73,7 +95,7 @@ struct RemovalPlan: Sendable {
             switch operation {
             case .trash(_, let bytes): total + bytes
             case .evict(_, let bytes): total + bytes
-            case .resized(_, _, let actual): total + actual
+            case .resized(_, _, let bytes): total + bytes
             default: total
             }
         }
@@ -124,9 +146,12 @@ struct RemovalPlan: Sendable {
                     }
 
                     let fresh = DiskMeasure.measure(path).allocatedSize
+                    // Only a single-path finding can be compared: with several
+                    // paths the finding's total says nothing about any one of
+                    // them.
                     let scanned = finding.paths.count == 1 ? finding.allocatedSize : fresh
-                    if finding.paths.count == 1, fresh != scanned {
-                        operations.append(.resized(url: path, scanned: scanned, actual: fresh))
+                    if scanned != fresh {
+                        operations.append(.resized(url: path, scanned: scanned, bytes: fresh))
                     } else {
                         operations.append(.trash(url: path, bytes: fresh))
                     }

@@ -219,3 +219,46 @@ struct LinkTests {
         #expect(AtticLinks.sponsorAccount.isEmpty)
     }
 }
+
+/// The sentences a rule uses to explain finding nothing.
+///
+/// These are the lines somebody reads when a scan came up short, and each one
+/// sends them somewhere: to unlock a folder, to install something, or nowhere at
+/// all. Two different situations sharing a sentence means one of them is being
+/// described wrongly.
+@Suite("Finding nothing is explained accurately")
+struct UnavailableCopyTests {
+
+    @Test("Every reason has its own sentence")
+    func reasonsAreDistinct() {
+        let messages = [
+            UnavailableReason.softwareNotInstalled,
+            .rootMissing,
+            .emptyRoot,
+            .everythingExcluded,
+            .permissionDenied,
+        ].map(\.message)
+
+        #expect(Set(messages).count == messages.count)
+        #expect(messages.allSatisfy { !$0.isEmpty })
+    }
+
+    @Test("An excluded folder is not described as an empty one")
+    func exclusionIsNotEmptiness() {
+        // A folder full of files, reported as empty, sends somebody looking for
+        // a problem that is not there — and quietly hides that the rule itself
+        // ruled everything out.
+        #expect(UnavailableReason.everythingExcluded.message != UnavailableReason.emptyRoot.message)
+        #expect(UnavailableReason.everythingExcluded.message.contains("excluded"))
+        #expect(UnavailableReason.emptyRoot.message.contains("empty"))
+        #expect(UnavailableReason.everythingExcluded.message.contains("empty") == false)
+    }
+
+    @Test("Only the permission case points at a fix the user can make")
+    func onlyDenialSuggestsAction() {
+        // The others are statements of fact. This one is the only one where
+        // there is something to do about it.
+        #expect(UnavailableReason.permissionDenied.message.contains("Full Disk Access"))
+        #expect(UnavailableReason.rootMissing.message.contains("Full Disk Access") == false)
+    }
+}

@@ -92,8 +92,8 @@ struct RemovalPlanTests {
         #expect(plan.bytesStaged == 0)
     }
 
-    @Test("A path whose size changed since the scan is reported as resized")
-    func resizedPathIsReported() throws {
+    @Test("A path whose size changed is still trashed, at its real size")
+    func resizedPathIsStillTrashed() throws {
         let tree = try FixtureTree()
         defer { tree.destroy() }
         let file = try tree.file("ProjectA/build.o")
@@ -105,15 +105,23 @@ struct RemovalPlanTests {
             definitions: [.fixture(root: tree.root)]
         )
 
-        #expect(plan.operations == [.resized(url: file, scanned: stale, actual: fresh)])
+        #expect(plan.operations == [.resized(url: file, scanned: stale, bytes: fresh)])
 
-        // Pinning a known gap, deferred until an executor exists: a resized path
-        // produces no trash operation, yet its bytes still count toward the staged
-        // figure and the plan still reports itself safe to execute. So the headline
-        // total can include bytes that nothing in the plan would remove.
-        #expect(plan.trashOperations.isEmpty)
+        // The gap this test used to pin: `resized` was excluded from the trash
+        // operations while its bytes still counted toward the staged figure, so
+        // the dry run described an item that would not move — while the
+        // executor, which re-measures and moves every path, moved it anyway.
+        // The plan now says what the executor does.
+        #expect(plan.trashOperations.count == 1)
+        #expect(plan.resizedOperations.count == 1)
         #expect(plan.bytesStaged == fresh)
         #expect(plan.isSafeToExecute)
+
+        // A size change is not grounds to refuse something somebody chose, so
+        // the log reads as a removal — with the scan's figure alongside, because
+        // the difference is theirs to see.
+        #expect(plan.dryRunLog.hasPrefix("TRASH"))
+        #expect(plan.dryRunLog.contains("scan said"))
     }
 }
 
@@ -211,9 +219,12 @@ struct DryRunLogTests {
         #expect(PlannedOperation.run(.brewCleanup).loggedLine.hasPrefix("RUN"))
         #expect(PlannedOperation.reveal(url: url).loggedLine.hasPrefix("REVEAL"))
         #expect(PlannedOperation.missing(path: url.path).loggedLine.hasPrefix("MISSING"))
-        #expect(
-            PlannedOperation.resized(url: url, scanned: 1, actual: 2).loggedLine.hasPrefix("RESIZED")
-        )
+        // A resized path logs as a removal, because that is what happens to it.
+        // The verb describes the operation; the scanned figure rides along so
+        // the difference is visible rather than absorbed.
+        let resized = PlannedOperation.resized(url: url, scanned: 1, bytes: 2).loggedLine
+        #expect(resized.hasPrefix("TRASH"))
+        #expect(resized.contains("scan said"))
     }
 
     @Test("A refusal logs the reason alongside the path")
