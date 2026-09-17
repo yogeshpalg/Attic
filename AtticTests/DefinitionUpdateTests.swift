@@ -158,6 +158,24 @@ struct DefinitionUpdaterTests {
         #expect(harness.cache.payload(verifier: harness.signer.verifier)?.catalogueVersion == 5)
     }
 
+    @Test("A feed with nothing on it yet is not reported as a failure")
+    func emptyFeedIsNotAnError() {
+        // This is what lets the feed URL ship in a build before the first
+        // catalogue is published: 404 means "nothing published", which is true.
+        #expect(NetworkTransport.outcome(for: 404) == .notPublished)
+        #expect(NetworkTransport.outcome(for: 410) == .notPublished)
+
+        // Success is success, including the ones nobody expects.
+        #expect(NetworkTransport.outcome(for: 200) == nil)
+        #expect(NetworkTransport.outcome(for: 204) == nil)
+
+        // Everything else keeps its status, so a broken host and an empty one
+        // are never confused in the message the user reads.
+        #expect(NetworkTransport.outcome(for: 500) == .serverError(status: 500))
+        #expect(NetworkTransport.outcome(for: 403) == .serverError(status: 403))
+        #expect(NetworkTransport.outcome(for: 503) == .serverError(status: 503))
+    }
+
     @Test("Bytes that are not a catalogue at all are refused")
     func garbageIsRefused() async throws {
         let harness = try UpdateHarness()

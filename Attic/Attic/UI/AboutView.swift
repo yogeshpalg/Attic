@@ -312,8 +312,19 @@ struct AboutView: View {
             updateState = .updated(version: payload.catalogueVersion)
         } catch let error as DefinitionTrustError {
             updateState = .failed(Self.describe(error))
+        } catch let error as DefinitionFetchError {
+            updateState = .failed(Self.describe(error))
         } catch {
             updateState = .failed("Could not reach the definitions feed")
+        }
+    }
+
+    private static func describe(_ error: DefinitionFetchError) -> String {
+        switch error {
+        // Not an error, and not dressed up as one: a feed with nothing on it
+        // yet is the ordinary state of a feed.
+        case .notPublished: "No definitions update has been published yet"
+        case .serverError(let status): "The definitions host answered \(status)"
         }
     }
 

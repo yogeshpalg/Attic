@@ -107,6 +107,50 @@ still lands.
 `AtticTests/PublishedFormatTests` verifies that exact signed document against the key compiled
 into the app, so a key rotation or an encoding change fails the suite rather than the field.
 
+## Hosting the feed on Cloudflare
+
+A good fit, because the catalogue is signed: **the CDN is untrusted transport.** Cloudflare
+never holds the signing key, and the worst a compromised or misconfigured edge can do is serve
+bytes the app refuses — a bad signature is rejected, an older `catalogueVersion` is rejected as
+a downgrade, and anything that is not JSON is rejected outright. That is a very different risk
+profile from a host that is trusted to be correct.
+
+Two ways, both fine:
+
+- **R2 + a custom domain.** A bucket with one object, exposed on `definitions.<your-domain>`.
+  No code. Egress is free and the free tier is far beyond what a JSON file needs.
+- **A Worker.** Worth it only if you want conditional responses later — serving different
+  catalogues per macOS version, say, or per app version. The app already filters by both, so
+  there is no reason to start here.
+
+```
+# once
+wrangler r2 bucket create attic-definitions
+# per publish
+wrangler r2 object put attic-definitions/v1/definitions.json \
+    --file definitions.json --content-type application/json \
+    --cache-control "public, max-age=300"
+```
+
+Then point a custom domain at the bucket and set `DefinitionFeed.url` to
+`https://definitions.<your-domain>/v1/definitions.json`.
+
+Three things worth getting right:
+
+- **Version the path, not the file.** `/v1/…` means a future incompatible format can be
+  published at `/v2/…` while every already-shipped copy of Attic keeps reading `/v1/…` happily.
+  Changing the URL later needs an app update; adding a new one does not.
+- **Keep `max-age` short** (five minutes is plenty) and purge on publish. The app sets
+  `reloadIgnoringLocalCacheData`, so it never serves its own stale copy — but the edge will
+  happily hold an old object for as long as you tell it to.
+- **A custom domain, not `*.r2.dev`.** The URL is compiled into every build, so it has to
+  outlive whatever the storage behind it turns out to be.
+
+The URL can be set **before anything is published**: a 404 or 410 is reported as
+"No definitions update has been published yet", which is true, rather than as a failure. So this
+can be deferred to whenever the first real catalogue is ready, and the only thing that has to be
+decided early is the URL itself.
+
 ## Still open
 
 - **`DefinitionFeed.url` is `nil`**, so the update button does not render. It needs a URL that

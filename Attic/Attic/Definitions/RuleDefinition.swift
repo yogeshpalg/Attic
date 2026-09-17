@@ -167,3 +167,51 @@ struct RuleDefinition: Codable, Sendable, Identifiable, Equatable {
     var status: RuleStatus
     let explanation: Explanation
 }
+
+// MARK: - Decoding a hand-written rule
+
+extension RuleDefinition {
+
+    /// Decoding written by hand, because the synthesised version does not use
+    /// default values: a missing `holdsAuthoredWork` made Swift reject the whole
+    /// file, and the error the author saw was "that file could not be read as a
+    /// definitions catalogue" with no mention of which key.
+    ///
+    /// What is required and what defaults is a deliberate split. The fields that
+    /// decide *what gets matched* and *what happens to it* are required, so a
+    /// typo in `root` or `action` fails loudly instead of quietly becoming
+    /// something else. The rest default to their cautious value.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Required: get any of these wrong and the rule is not the rule the
+        // author thought they wrote.
+        id = try container.decode(String.self, forKey: .id)
+        category = try container.decode(Category.self, forKey: .category)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        root = try container.decode(PathSpec.self, forKey: .root)
+        match = try container.decode(MatchSpec.self, forKey: .match)
+        action = try container.decode(RemovalAction.self, forKey: .action)
+        // The three sentences are the whole promise of the app.
+        explanation = try container.decode(Explanation.self, forKey: .explanation)
+
+        minAppVersion = try container.decodeIfPresent(String.self, forKey: .minAppVersion) ?? "1.0"
+        minOSVersion = try container.decodeIfPresent(String.self, forKey: .minOSVersion)
+        maxOSVersion = try container.decodeIfPresent(String.self, forKey: .maxOSVersion)
+        architecture = try container.decodeIfPresent(ArchitectureScope.self, forKey: .architecture)
+        exclude = try container.decodeIfPresent([ExcludeRule].self, forKey: .exclude) ?? []
+        grouping = try container.decodeIfPresent(Grouping.self, forKey: .grouping) ?? .single
+        retention = try container.decodeIfPresent(Retention.self, forKey: .retention) ?? .none
+        subtitleStyle = try container
+            .decodeIfPresent(SubtitleStyle.self, forKey: .subtitleStyle) ?? .fileCount
+        applicability = try container
+            .decodeIfPresent(Applicability.self, forKey: .applicability) ?? .rootExists
+        privilege = try container.decodeIfPresent(Privilege.self, forKey: .privilege) ?? .user
+        // Cautious where it costs nothing: an unstated grade is "check first",
+        // so a rule nobody graded is never swept up by "Select safe".
+        grade = try container.decodeIfPresent(SafetyGrade.self, forKey: .grade) ?? .checkFirst
+        holdsAuthoredWork = try container
+            .decodeIfPresent(Bool.self, forKey: .holdsAuthoredWork) ?? false
+        status = try container.decodeIfPresent(RuleStatus.self, forKey: .status) ?? .active
+    }
+}

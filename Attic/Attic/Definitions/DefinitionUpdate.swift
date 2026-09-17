@@ -94,13 +94,42 @@ protocol DefinitionTransport: Sendable {
     func data(from url: URL) async throws -> Data
 }
 
+/// What the other end said, when it was not a catalogue.
+///
+/// "Nothing is published yet" and "the host is broken" are different facts and
+/// deserve different sentences. Keeping them apart is also what lets the feed
+/// URL be compiled into a build *before* the first catalogue exists: a 404 then
+/// reads as "no update published", which is true, rather than as an error.
+enum DefinitionFetchError: Error, Equatable {
+    case notPublished
+    case serverError(status: Int)
+}
+
 struct NetworkTransport: DefinitionTransport {
+
+    /// Split out so the status handling is testable without a network.
+    static func outcome(for status: Int) -> DefinitionFetchError? {
+        switch status {
+        case 200..<300: nil
+        // A missing or withdrawn file is not a failure. It is the normal state
+        // of a feed that has not published anything yet.
+        case 404, 410: .notPublished
+        default: .serverError(status: status)
+        }
+    }
+
     func data(from url: URL) async throws -> Data {
-        // No caching layer: the document carries its own version and signature,
-        // and a stale 200 from a proxy is indistinguishable from a downgrade.
+        // No caching layer of our own: the document carries its own version and
+        // signature, and a stale 200 from a proxy is indistinguishable from a
+        // downgrade. The cache-control headers at the origin decide freshness.
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let http = response as? HTTPURLResponse,
+           let problem = Self.outcome(for: http.statusCode) {
+            throw problem
+        }
         return data
     }
 }

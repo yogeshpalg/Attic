@@ -59,26 +59,67 @@ Authoring a rule does not widen what the engine will do:
 
 ---
 
+## The shortest rule that works
+
+Seven fields are required. Everything else has a cautious default, so a hand-written rule can
+be this short:
+
+```json
+{
+  "formatVersion": 1,
+  "rules": [
+    {
+      "id": "mine.tool-cache",
+      "category": "cachesAndLogs",
+      "displayName": "My tool's cache",
+      "root": { "home": { "_0": "Library/Caches/com.example.mine" } },
+      "match": { "wholeRoot": {} },
+      "action": { "trash": {} },
+      "explanation": {
+        "whatThisIs": "A cache my tool writes while building.",
+        "whatStopsWorking": "Nothing. It is rebuilt the next time the tool runs.",
+        "doesItComeBack": "Yes, on the next build."
+      }
+    }
+  ]
+}
+```
+
+Those seven are required because getting any of them wrong would make the rule something other
+than what you meant: `root` and `match` decide *what is matched*, `action` decides *what
+happens to it*, and the three sentences are the whole promise of the app. A typo in any of them
+fails loudly and names the field — `rule 1 is missing 'root'` — rather than quietly becoming
+something else.
+
+Note what the defaults give you: an ungraded rule is **`checkFirst`**, never `safe`, so a rule
+nobody graded is never swept up by "Select safe".
+
+Unknown keys are ignored, so you can leave yourself notes in the file. The `_help` key that
+exported templates carry is one of those — documentation, not data.
+
 ## Rule fields
+
+Required: `id`, `category`, `displayName`, `root`, `match`, `action`, `explanation`.
+Everything else is optional, with the default in brackets.
 
 | Field | Meaning |
 |---|---|
 | `id` | Stable, dotted. Prefix of every finding id it produces. |
-| `minAppVersion` | Rules may ship ahead of the app that understands them. |
+| `minAppVersion` | Rules may ship ahead of the app that understands them. [`1.0`] |
 | `minOSVersion` / `maxOSVersion` | Inclusive, compared numerically (`15.10` is newer than `15.9`). Set **only** where a location actually changed between releases. |
 | `architecture` | `appleSilicon` or `intel`, for the rare location that only exists on one. Left empty otherwise — a cache is a cache on either machine. No shipped rule sets it, and a test asserts that. |
 | `category` | Sidebar grouping. |
 | `displayName` | Shown to people. No paths. |
 | `root` | `home("Library/Caches/thing")` or `absolute("/Library/Updates")`. |
 | `match` | `wholeRoot`, `immediateChildren`, `namedChildren([…])`, `childrenWithPrefix([…])`, `filesWithExtension("ipsw")` (recursive), `downloadedCloudFiles`, `orphanedSupport(application|tool)`. A closed set, deliberately — there is no glob engine to get subtly wrong. |
-| `exclude` | `pathComponent`, `fileExtension`, `nameSuffix`, `bundleIdentifierNames`. |
-| `grouping` | `single`, `perMatch`, `perOwner`. |
-| `retention` | `none`, `excludeModifiedWithin(days:)`, `keepNewestPerLeadingComponent`. Whatever is withheld is **reported**, never silently dropped. |
+| `exclude` | `pathComponent`, `fileExtension`, `nameSuffix`, `bundleIdentifierNames`. [none] |
+| `grouping` | `single`, `perMatch`, `perOwner`. [`single`] |
+| `retention` | `none`, `excludeModifiedWithin(days:)`, `keepNewestPerLeadingComponent`. Whatever is withheld is **reported**, never silently dropped. [`none`] |
 | `action` | `trash`, `revealOnly`, `evictCloudCopy`, `command(…)` (built-in only). |
-| `privilege` | `user`, or `administrator` — Attic never escalates, so an administrator rule degrades to Reveal in Finder. |
-| `grade` | `safe`, `checkFirst`, `keep`. |
-| `holdsAuthoredWork` | True when nothing regenerates what this matches. |
-| `status` | `active` or `detectOnly`. |
+| `privilege` | `user`, or `administrator` — Attic never escalates, so an administrator rule degrades to Reveal in Finder. [`user`] |
+| `grade` | `safe`, `checkFirst`, `keep`. [`checkFirst`] |
+| `holdsAuthoredWork` | True when nothing regenerates what this matches. [`false`] |
+| `status` | `active` or `detectOnly`. [`active`] |
 | `explanation` | Three sentences: what this is, what stops working, does it come back. |
 
 `root` pointing somewhere that does not exist is not an error: the rule reports
@@ -114,8 +155,10 @@ republish still lands.
 Signed rules run under the same limits as imported ones, plus one difference: they may carry
 `command` actions, which arrive `detectOnly` until a release of the app promotes them.
 
-Unset signing key = everything refused. There is a test pinning that, because "no key" must
-never mean "accept anything".
+A build with no signing key refuses everything, which is the correct failure — "no key" must
+never mean "accept anything", and there is a test pinning that. This build does carry one, and
+`AtticTests/PublishedFormatTests` checks a catalogue signed by it against the shipping verifier,
+so a key rotation or an encoding change fails the suite rather than the field.
 
 ---
 

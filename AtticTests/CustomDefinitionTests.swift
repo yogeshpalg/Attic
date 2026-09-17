@@ -89,6 +89,70 @@ struct CustomDefinitionValidationTests {
         }
     }
 
+    @Test("A rule can leave out anything that has a cautious default")
+    func defaultsFillInForHandWrittenRules() throws {
+        // The minimum somebody should have to write: where to look, what it
+        // matches, what happens, and the three sentences.
+        let json = """
+            {
+              "formatVersion": 1,
+              "rules": [
+                {
+                  "id": "mine.minimal",
+                  "category": "cachesAndLogs",
+                  "displayName": "My tool cache",
+                  "root": { "home": { "_0": "Library/Caches/com.example.mine" } },
+                  "match": { "wholeRoot": {} },
+                  "action": { "trash": {} },
+                  "explanation": {
+                    "whatThisIs": "A cache.",
+                    "whatStopsWorking": "Nothing.",
+                    "doesItComeBack": "Yes."
+                  }
+                }
+              ]
+            }
+            """
+
+        let rule = try #require(try CustomDefinitionStore.validate(Data(json.utf8)).rules.first)
+
+        #expect(rule.exclude.isEmpty)
+        #expect(rule.privilege == .user)
+        #expect(rule.applicability == .rootExists)
+        #expect(rule.retention == .none)
+        // Cautious where it costs nothing: a rule nobody graded is never swept
+        // up by "Select safe".
+        #expect(rule.grade == .checkFirst)
+        #expect(rule.holdsAuthoredWork == false)
+        #expect(rule.minAppVersion == "1.0")
+    }
+
+    @Test("A missing required field is named, not hidden behind 'unreadable'")
+    func missingFieldsAreNamed() throws {
+        // No root: the one field whose absence cannot be defaulted, because
+        // there is nowhere to look.
+        let json = """
+            {
+              "formatVersion": 1,
+              "rules": [
+                { "id": "mine.broken", "category": "cachesAndLogs", "displayName": "X",
+                  "match": { "wholeRoot": {} }, "action": { "trash": {} },
+                  "explanation": { "whatThisIs": "A.", "whatStopsWorking": "B.", "doesItComeBack": "C." } }
+              ]
+            }
+            """
+
+        do {
+            _ = try CustomDefinitionStore.validate(Data(json.utf8))
+            Issue.record("a rule with no root should not validate")
+        } catch let error as CustomDefinitionError {
+            // The author just wrote this file. The message has to say which
+            // field, and which rule, or they are reduced to guessing.
+            #expect(error.message.contains("root"))
+            #expect(error.message.contains("rule 1"))
+        }
+    }
+
     @Test("An empty catalogue and unreadable bytes are both refused")
     func emptyAndUnreadableAreRefused() throws {
         #expect(throws: CustomDefinitionError.noRules) {
@@ -125,6 +189,63 @@ struct CustomDefinitionValidationTests {
         // exported into a file that would fail the moment it came back.
         #expect(parsed.rules.allSatisfy { if case .command = $0.action { false } else { true } })
         #expect(parsed.rules.count < Catalogue.all.count)
+
+        // The instructions travel with the file, because JSON has no comments
+        // and the person who opens this months from now will not have the docs
+        // in front of them.
+        let help = try #require(parsed.help)
+        #expect(help.contains("Import"))
+        #expect(help.contains("DEFINITIONS.md"))
+    }
+
+    @Test("A file without the help note is still valid")
+    func helpNoteIsOptional() throws {
+        // Hand-written files will not carry it, and it is documentation rather
+        // than data — validating it would turn a note into a requirement.
+        let data = try encode(CustomCatalogue(rules: [.fixture(root: anyRoot)]))
+        let parsed = try CustomDefinitionStore.validate(data)
+
+        #expect(parsed.help == nil)
+        #expect(parsed.rules.count == 1)
+    }
+
+    @Test("An unknown key in a hand-written file is ignored rather than refused")
+    func unknownKeysAreTolerated() throws {
+        // People leave notes in JSON files. Refusing a catalogue over a stray
+        // key would be pedantry, not safety.
+        let json = """
+            {
+              "formatVersion": 1,
+              "_note": "my own comment",
+              "rules": [
+                {
+                  "id": "mine.cache",
+                  "minAppVersion": "1.0",
+                  "category": "cachesAndLogs",
+                  "displayName": "My tool cache",
+                  "root": { "home": { "_0": "Library/Caches/com.example.mine" } },
+                  "match": { "wholeRoot": {} },
+                  "exclude": [],
+                  "grouping": "single",
+                  "retention": { "none": {} },
+                  "subtitleStyle": "fileCount",
+                  "applicability": { "rootExists": {} },
+                  "action": { "trash": {} },
+                  "privilege": "user",
+                  "grade": "safe",
+                  "status": "active",
+                  "explanation": {
+                    "whatThisIs": "A cache.",
+                    "whatStopsWorking": "Nothing.",
+                    "doesItComeBack": "Yes."
+                  }
+                }
+              ]
+            }
+            """
+
+        let parsed = try CustomDefinitionStore.validate(Data(json.utf8))
+        #expect(parsed.rules.first?.id == "mine.cache")
     }
 }
 

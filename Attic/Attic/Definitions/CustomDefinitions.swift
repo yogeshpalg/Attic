@@ -9,10 +9,28 @@ import Foundation
 /// limits below, which do not widen just because a rule arrived locally.
 struct CustomCatalogue: Codable, Sendable, Equatable {
     var formatVersion: Int
+    /// A note written into exported templates, so a file somebody opens in a
+    /// text editor six months later says what it is and what the limits are.
+    /// JSON has no comments; this is the closest thing.
+    ///
+    /// Optional on the way in, and never validated — a hand-written file that
+    /// drops it is perfectly valid.
+    var help: String?
     var rules: [RuleDefinition]
 
-    init(formatVersion: Int = CataloguePayload.supportedFormatVersion, rules: [RuleDefinition]) {
+    enum CodingKeys: String, CodingKey {
+        case formatVersion
+        case help = "_help"
+        case rules
+    }
+
+    init(
+        formatVersion: Int = CataloguePayload.supportedFormatVersion,
+        help: String? = nil,
+        rules: [RuleDefinition]
+    ) {
         self.formatVersion = formatVersion
+        self.help = help
         self.rules = rules
     }
 }
@@ -21,6 +39,10 @@ struct CustomCatalogue: Codable, Sendable, Equatable {
 /// the message can point at the line to fix rather than saying "invalid".
 enum CustomDefinitionError: Error, Equatable {
     case unreadable
+    /// Valid JSON, but not a catalogue this build can read — carrying the field
+    /// at fault, because "that file could not be read" is useless to the person
+    /// who just wrote the file.
+    case malformed(detail: String)
     case unsupportedFormat(offered: Int, supported: Int)
     case noRules
     case duplicateIdentifiers([String])
@@ -35,6 +57,8 @@ enum CustomDefinitionError: Error, Equatable {
         switch self {
         case .unreadable:
             "That file could not be read as a definitions catalogue."
+        case .malformed(let detail):
+            "That file is not a definitions catalogue: \(detail)"
         case .unsupportedFormat(let offered, let supported):
             "That file uses format \(offered); this version of Attic reads format \(supported)."
         case .noRules:
@@ -110,8 +134,17 @@ struct CustomDefinitionStore: Sendable {
             catalogue = wrapped
         } else if let bare = try? decoder.decode([RuleDefinition].self, from: data) {
             catalogue = CustomCatalogue(rules: bare)
-        } else {
+        } else if (try? JSONSerialization.jsonObject(with: data)) == nil {
             throw CustomDefinitionError.unreadable
+        } else {
+            // Valid JSON that is not a catalogue. Decode once more, letting the
+            // error out this time, so the message can name the field.
+            do {
+                _ = try decoder.decode(CustomCatalogue.self, from: data)
+                throw CustomDefinitionError.unreadable
+            } catch let error as DecodingError {
+                throw CustomDefinitionError.malformed(detail: Self.describe(error))
+            }
         }
 
         guard catalogue.formatVersion == CataloguePayload.supportedFormatVersion else {
@@ -155,6 +188,33 @@ struct CustomDefinitionStore: Sendable {
         return catalogue
     }
 
+    /// Turns a decoding failure into a sentence that names the field and, where
+    /// the problem is inside a rule, which rule.
+    static func describe(_ error: DecodingError) -> String {
+        func location(_ path: [any CodingKey]) -> String {
+            let parts = path.map { key -> String in
+                // An array index arrives as a key whose name is "Index 2"; the
+                // author counts rules from one.
+                if let index = key.intValue { return "rule \(index + 1)" }
+                return "'\(key.stringValue)'"
+            }
+            return parts.isEmpty ? "the file" : parts.joined(separator: " → ")
+        }
+
+        switch error {
+        case .keyNotFound(let key, let context):
+            return "\(location(context.codingPath)) is missing '\(key.stringValue)'"
+        case .typeMismatch(_, let context), .valueNotFound(_, let context):
+            return "\(location(context.codingPath)) has the wrong kind of value"
+        case .dataCorrupted(let context):
+            return context.codingPath.isEmpty
+                ? "the JSON is not shaped like a catalogue"
+                : "\(location(context.codingPath)) could not be understood"
+        @unknown default:
+            return "it could not be decoded"
+        }
+    }
+
     /// The built-in rules, written out as a file somebody can edit.
     ///
     /// This is the starting point for authoring: 20-odd worked examples of the
@@ -170,8 +230,30 @@ struct CustomDefinitionStore: Sendable {
         }
         let encoder = CatalogueCoding.encoder
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(CustomCatalogue(rules: authorable))
+        return try encoder.encode(
+            CustomCatalogue(help: Self.templateHelp, rules: authorable)
+        )
     }
+
+    /// The instructions that travel with the file.
+    ///
+    /// Written for somebody who exported this, forgot about it, and opened it
+    /// again months later: what the file is, what to edit, and the two limits
+    /// that will otherwise look like bugs when a rule arrives without a
+    /// checkbox.
+    static let templateHelp = """
+        Attic definitions. Each rule names one place on this Mac, what lives \
+        there, and what happens if it goes. Edit this file and import it from \
+        About Attic → Import…, or save it to \
+        ~/Library/Application Support/dev.yogesh.attic/custom-definitions.json. \
+        Keep an id stable to override a built-in rule of the same id. \
+        Imported rules can only move your own files to the Trash: anything \
+        needing administrator rights, running a command, or matching authored \
+        work is still found and explained but arrives with no checkbox. Rules \
+        that run commands are refused outright, which is why none appear here. \
+        The three explanation sentences are required. Full format and reasoning: \
+        DEFINITIONS.md in the Attic repository.
+        """
 }
 
 // MARK: - Merging
