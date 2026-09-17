@@ -71,6 +71,18 @@ struct InstalledAppStore: Sendable {
                 URL(fileURLWithPath: "/Applications"),
                 URL(fileURLWithPath: "/Applications/Utilities"),
                 home.appending(path: "Applications"),
+                // Setapp installs its subscription apps into its own folder,
+                // in one place or the other depending on whether it was set up
+                // for every user or just this one. Neither exists on a Mac
+                // without Setapp, and a folder that is not there costs one
+                // failed directory read.
+                URL(fileURLWithPath: "/Applications/Setapp"),
+                home.appending(path: "Applications/Setapp"),
+                // Apps installed for every user by something other than the
+                // App Store. Uncommon, but it is a real install location and
+                // leaving it out means an app that is plainly there does not
+                // appear in a list that claims to show what is installed.
+                URL(fileURLWithPath: "/Users/Shared/Applications"),
             ],
             supportLocations: OrphanLocation.standard(home: home)
         )
@@ -87,6 +99,15 @@ struct InstalledAppStore: Sendable {
     }
 
     /// Installed apps, by name, with Apple's own and this app excluded.
+    ///
+    /// Keyed by bundle identifier, so an app present in two folders is listed
+    /// once. The later folder wins, and the order in `standard` is deliberate:
+    /// a Setapp app also aliased into `/Applications` resolves to the Setapp
+    /// copy, which is where it really lives.
+    ///
+    /// A Setapp app can be moved to the Trash like any other, and Setapp will
+    /// offer to install it again — which is the same reversibility the rest of
+    /// the app relies on, so it needs no special case.
     func apps() -> [InstalledApp] {
         var found: [String: InstalledApp] = [:]
 

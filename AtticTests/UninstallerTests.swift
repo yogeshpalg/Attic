@@ -318,3 +318,96 @@ struct UninstallPlanTests {
         #expect(plan.trashOperations.count == 2)
     }
 }
+
+
+/// Where the uninstaller looks.
+///
+/// An app the user can plainly see in Finder, absent from a list that claims to
+/// show what is installed, reads as the feature being broken. These pin the
+/// locations and what happens when the same app is in two of them.
+@Suite("The uninstaller looks everywhere apps are actually installed")
+struct InstallLocationTests {
+
+    private func makeApp(
+        _ tree: FixtureTree, folder: String, name: String, identifier: String
+    ) throws {
+        let bundle = tree.root.appending(path: "\(folder)/\(name).app/Contents")
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        let plist = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>CFBundleIdentifier</key><string>\(identifier)</string>
+                <key>CFBundleName</key><string>\(name)</string>
+                <key>CFBundleExecutable</key><string>\(name)</string>
+            </dict>
+            </plist>
+            """
+        try plist.data(using: .utf8)!.write(to: bundle.appending(path: "Info.plist"))
+        try tree.file("\(folder)/\(name).app/Contents/MacOS/\(name)", bytes: 16_384)
+    }
+
+    @Test("The shipping store covers every place apps are installed")
+    func standardLocationsAreCovered() {
+        let home = URL(fileURLWithPath: "/Users/someone")
+        let paths = Set(InstalledAppStore.standard(home: home).folders.map(\.path))
+
+        #expect(paths.contains("/Applications"))
+        #expect(paths.contains("/Applications/Utilities"))
+        #expect(paths.contains("/Users/someone/Applications"))
+        // Setapp keeps its subscription apps in its own folder, in one place or
+        // the other depending on how it was installed.
+        #expect(paths.contains("/Applications/Setapp"))
+        #expect(paths.contains("/Users/someone/Applications/Setapp"))
+        // Installed for every user by something other than the App Store.
+        #expect(paths.contains("/Users/Shared/Applications"))
+    }
+
+    @Test("A folder that does not exist costs nothing")
+    func absentFoldersAreHarmless() throws {
+        let tree = try FixtureTree()
+        defer { tree.destroy() }
+        try makeApp(tree, folder: "Applications", name: "Real", identifier: "com.example.real")
+
+        // Most Macs have no Setapp and no shared Applications folder, so the
+        // usual case is several folders that are simply not there.
+        let store = InstalledAppStore(
+            folders: [
+                tree.root.appending(path: "Applications"),
+                tree.root.appending(path: "Applications/Setapp"),
+                tree.root.appending(path: "nowhere/at/all"),
+            ],
+            supportLocations: OrphanLocation.standard(home: tree.root),
+            runningIdentifiers: { [] }
+        )
+
+        #expect(store.apps().map(\.identifier) == ["com.example.real"])
+    }
+
+    @Test("An app in two folders is listed once, at the place it really lives")
+    func duplicatesResolveToTheLaterFolder() throws {
+        let tree = try FixtureTree()
+        defer { tree.destroy() }
+        // The shape Setapp produces: a copy in /Applications and the managed
+        // one in its own folder, both with the same identifier.
+        try makeApp(tree, folder: "Applications", name: "Managed", identifier: "com.example.managed")
+        try makeApp(tree, folder: "Applications/Setapp", name: "Managed", identifier: "com.example.managed")
+
+        let store = InstalledAppStore(
+            folders: [
+                tree.root.appending(path: "Applications"),
+                tree.root.appending(path: "Applications/Setapp"),
+            ],
+            supportLocations: OrphanLocation.standard(home: tree.root),
+            runningIdentifiers: { [] }
+        )
+        let apps = store.apps()
+
+        // Listed once — two rows for one app would offer the same removal
+        // twice and double its size in the total.
+        #expect(apps.count == 1)
+        // And resolved to the managed copy, because the folder order says so.
+        #expect(apps.first?.bundleURL.path.contains("Setapp") == true)
+    }
+}
