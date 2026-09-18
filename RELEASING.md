@@ -11,21 +11,21 @@ Tools/release.sh            # test, archive, sign, notarize, staple, package
 
 ## Where 1.0 stands
 
-**Notarized but superseded.** `build/release/Attic-1.0.dmg` is version 1.0 **build 3**, signed,
-notarized and stapled — `stapler validate` and `spctl` agree: `source=Notarized Developer ID`,
-`Developer ID Application: Yogesh Gahlot (5KP386UDP6)`.
+**Built and notarized, matching the source; not published.**
+`build/release/Attic-1.0.dmg` is version 1.0 **build 4** — 3.0 MB, notarized 2026-09-17
+(submission `68da58ad-96f2-43dc-9c17-e42c74bfeb03`, *Accepted*) and stapled. `stapler validate`
+passes on the image, and `spctl` accepts both the image and the app inside it as
+`source=Notarized Developer ID`, `Developer ID Application: Yogesh Gahlot (5KP386UDP6)`.
 
-That artifact is **behind the source.** The removal confirmation and the first-run card have
-since been corrected, so build 3 still carries copy that promises the Trash for things that do
-not go there. Do not publish it. `CURRENT_PROJECT_VERSION` needs raising to 4 and
-`Tools/release.sh` re-running before anything ships.
+Build 3 was the earlier notarized attempt and carried the old "everything goes to the Trash"
+copy. It is superseded; nothing from it was published.
 
 `build/` is gitignored, so no DMG is in the repository and none should be added. Publishing
 means attaching the artifact to a GitHub release.
 
-Still outstanding either way: *Before publishing: three machines* below. The suite passes — 335
-tests across 57 suites — but the Intel path has never run on Intel hardware, so that checklist
-is a real gate rather than a formality.
+**The remaining gate is the next section.** The suite passes — 335 tests across 57 suites — but
+the Intel path has never run on Intel hardware, so *Before publishing: three machines* is a real
+check rather than a formality.
 
 ---
 
