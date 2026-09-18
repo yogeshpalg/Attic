@@ -17,7 +17,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		000000000000000000000120 /* Attic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Attic.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000120 /* Attic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Attic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC5FB9F4305A325A001985F4 /* Attic-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Attic-Info.plist"; sourceTree = "<group>"; };
 		ECF5C01E305A19A000D4F0A1 /* AtticTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AtticTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -320,7 +320,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5KP386UDP6;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
@@ -364,7 +364,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5KP386UDP6;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;

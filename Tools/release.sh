@@ -148,6 +148,28 @@ case "$SIGNATURE" in
     *) fail "the app is not built with the hardened runtime" ;;
 esac
 
+# The bundle identifier is the one setting that cannot be corrected after the
+# first release: macOS keys preferences, the lifetime counter, imported
+# definitions and the Full Disk Access grant to it. A stray edit in Xcode's
+# Signing & Capabilities pane once shipped a build identified as a fragment of
+# the team ID, and every other check here passed — the suite was green, the
+# signature was valid, Apple notarized it. So it is checked against a literal.
+step "Checking the app is who it claims to be"
+EXPECTED_BUNDLE_ID="dev.yogesh.attic"
+
+ACTUAL_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
+    "$APP/Contents/Info.plist" 2>/dev/null || true)
+[ "$ACTUAL_BUNDLE_ID" = "$EXPECTED_BUNDLE_ID" ] || fail \
+    "bundle identifier is '$ACTUAL_BUNDLE_ID', expected '$EXPECTED_BUNDLE_ID' — see RELEASING.md"
+echo "bundle id:      $ACTUAL_BUNDLE_ID"
+
+# The signing identifier is derived from the bundle id at signing time, so a
+# mismatch here means the two disagree about what this app is.
+case "$SIGNATURE" in
+    *"Identifier=$EXPECTED_BUNDLE_ID"*) echo "signed as:      $EXPECTED_BUNDLE_ID" ;;
+    *) fail "the signature does not identify this app as '$EXPECTED_BUNDLE_ID'" ;;
+esac
+
 # ---------------------------------------------------------------- notarize
 
 DMG="$BUILD_DIR/$APP_NAME-$VERSION.dmg"
@@ -162,6 +184,16 @@ hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" \
     -ov -format UDZO "$DMG" -quiet
 rm -rf "$STAGING"
 
+# A notarized-but-unsigned image opens fine, because Gatekeeper reads the
+# stapled ticket — but then the ticket is the only thing vouching for it, and
+# `spctl` on the download reports "no usable signature". Signing costs one
+# command and means the image carries the same identity as the app inside it.
+if [ -n "$IDENTITY" ]; then
+    step "Signing the disk image"
+    codesign --sign "$IDENTITY" --timestamp "$DMG"
+    codesign --verify --strict --verbose=2 "$DMG"
+fi
+
 if [ "$NOTARIZE" = 1 ]; then
     step "Notarizing (this waits for Apple)"
     # The DMG is submitted rather than the app, so the thing people actually
@@ -175,12 +207,32 @@ if [ "$NOTARIZE" = 1 ]; then
     step "Checking it the way a new Mac will"
     # `spctl -a` on the mounted app is the closest thing to a first-launch
     # test without a second machine. It is not a substitute for one.
+    #
+    # Every step here is fatal on failure. The previous version parsed the
+    # mount point out of a tab-separated column and swallowed the verdict with
+    # `|| true`, so when the parse came back empty the app was never assessed
+    # and the release still reported success.
     xcrun stapler validate "$DMG"
-    MOUNT=$(hdiutil attach "$DMG" -nobrowse -readonly | awk -F'\t' '/Apple_HFS|Apple_APFS/ {print $NF}' | tail -1)
-    if [ -n "$MOUNT" ]; then
-        spctl --assess --type execute --verbose=2 "$MOUNT/$APP_NAME.app" || true
-        hdiutil detach "$MOUNT" -quiet
-    fi
+
+    # The image as a download: what Gatekeeper decides before anything mounts.
+    spctl -a -t open --context context:primary-signature -vv "$DMG" \
+        || fail "Gatekeeper rejects the disk image"
+
+    MOUNT=$(hdiutil attach "$DMG" -nobrowse -readonly | grep -o '/Volumes/.*$' | tail -1)
+    [ -n "$MOUNT" ] || fail "the disk image did not mount, so the app was never assessed"
+
+    # Anything that fails from here needs the image detached first, or the
+    # next run inherits a stale mount.
+    VERDICT=$(spctl --assess --type execute --verbose=2 "$MOUNT/$APP_NAME.app" 2>&1) \
+        || { echo "$VERDICT"; hdiutil detach "$MOUNT" -quiet; fail "Gatekeeper rejects the app inside the image"; }
+    echo "$VERDICT"
+
+    MOUNTED_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
+        "$MOUNT/$APP_NAME.app/Contents/Info.plist" 2>/dev/null || true)
+    hdiutil detach "$MOUNT" -quiet
+
+    [ "$MOUNTED_ID" = "$EXPECTED_BUNDLE_ID" ] || fail \
+        "the app inside the image is '$MOUNTED_ID', expected '$EXPECTED_BUNDLE_ID'"
 fi
 
 step "Done"
