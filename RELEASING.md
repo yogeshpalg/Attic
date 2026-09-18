@@ -12,26 +12,27 @@ Tools/release.sh            # test, archive, sign, notarize, staple, package
 ## Where 1.0 stands
 
 **Built and notarized, matching the source; not published.**
-`build/release/Attic-1.0.dmg` is version 1.0 **build 4** — 3.0 MB, notarized 2026-09-17
-(submission `68da58ad-96f2-43dc-9c17-e42c74bfeb03`, *Accepted*) and stapled. `stapler validate`
+`build/release/Attic-1.0.dmg` is version 1.0 **build 5** — 3.0 MB, notarized 2026-09-17
+(submission `adf4fc53-3618-4f1f-aafd-c9f657ade4df`, *Accepted*) and stapled. `stapler validate`
 passes on the image, and `spctl` accepts both the image and the app inside it as
 `source=Notarized Developer ID`, `Developer ID Application: Yogesh Gahlot (5KP386UDP6)`.
 
-Build 3 was the earlier notarized attempt and carried the old "everything goes to the Trash"
-copy. It is superseded; nothing from it was published.
+Earlier builds, kept on the record because each was notarized and one of them was installed:
 
-**Build 4 now trails the source too.** The Full Disk Access work — asking for the permission
-rather than inferring it, the corrected pane identifier, and the relaunch step — landed after it
-was notarized. Publishing needs `CURRENT_PROJECT_VERSION` at 5 and another run. Worth doing
-*after* the three-machine checklist rather than before: item 3 exists to test exactly that work,
-and finding a problem there means another build anyway.
+| Build | Why it was superseded |
+|---|---|
+| 3 | Carried "everything goes to the Trash" — untrue of the previews and iCloud rules. |
+| 4 | Correct removal copy, but predates the Full Disk Access work. |
 
-`build/` is gitignored, so no DMG is in the repository and none should be added. Publishing
-means attaching the artifact to a GitHub release.
+Nothing from either was published.
+
+`build/` is gitignored, so no DMG is in the repository and none should be added. Publishing means
+attaching the artifact to a GitHub release — see *Publishing the download* below.
 
 **The remaining gate is the next section.** The suite passes — 343 tests across 59 suites — but
 the Intel path has never run on Intel hardware, so *Before publishing: three machines* is a real
-check rather than a formality.
+check rather than a formality. Run it against **this** build: item 3 exists to exercise the Full
+Disk Access work, and a problem found there means build 6 regardless.
 
 ---
 
@@ -130,6 +131,52 @@ The suite covers the engine; these cover the assumptions the suite cannot.
 
 Also worth doing once on a clean account: confirm the first-run screen, the splash, all four
 themes, and that the About panel's definitions line reads correctly.
+
+## Publishing the download
+
+The DMG does not live in the repository and never will. A 3 MB signed binary committed to git
+sits in the history permanently, cannot be removed without rewriting every commit after it, and
+grows the clone for everybody who only wanted the source. `build/` is gitignored for that
+reason.
+
+Downloads belong to a **GitHub release**: a tag, some notes, and files attached to it. That is
+how every directly-distributed Mac app ships, and it is what gives you a stable download URL and
+a download count.
+
+```
+# From the repository, with the notarized DMG already built.
+gh release create v1.0 build/release/Attic-1.0.dmg \
+    --title "Attic 1.0" \
+    --notes-file /dev/stdin <<'NOTES'
+First release. macOS 15 or later, Apple silicon or Intel.
+
+Signed with a Developer ID certificate and notarized by Apple, so it opens
+without a Gatekeeper warning.
+NOTES
+```
+
+`gh release upload v1.0 <file>` adds a file to a release that already exists, and
+`--draft` creates it without publishing, which is the safer way to check how the page reads
+before anyone can reach it.
+
+Then the download is at:
+
+```
+https://github.com/yogeshpalg/Attic/releases/latest          # the page people link to
+https://github.com/yogeshpalg/Attic/releases/download/v1.0/Attic-1.0.dmg
+```
+
+The `/releases/latest` URL always resolves to the newest non-draft release, so the README can
+point at it once and never need editing again.
+
+Two things worth getting right:
+
+- **Tag what you built.** The tag should be the commit the DMG was built from, or the download
+  and the source stop matching and nobody can tell which. `gh release create` tags the current
+  commit by default, so create the release from a clean tree at the right commit.
+- **Do not delete and re-upload a published asset.** Anyone who already has the file has a copy
+  with a signature that matched at download time; replacing it silently means two different
+  binaries claimed the same version. Ship a new build number instead.
 
 ## Publishing a definitions update
 
