@@ -10,6 +10,21 @@ exceptions are named below rather than glossed over.
 
 macOS 15 or later, Apple silicon or Intel.
 
+### Download
+
+**[Attic 1.0 — download the DMG](https://github.com/yogeshpalg/Attic/releases/latest)**
+
+Open it, drag Attic to Applications. Signed with a Developer ID certificate and notarized by
+Apple, so it opens without a Gatekeeper warning. Verify the download if you like:
+
+```
+shasum -a 256 Attic-1.0.dmg
+2d99ff2fb400e63bac0df5e5a9f3469f025a0a3d168a77669e09cfdf3197f4b1
+```
+
+Not yet run on Intel hardware — the build is universal and the architecture handling is tested,
+but no Intel Mac has run it.
+
 ---
 
 ## Why another cleaner
