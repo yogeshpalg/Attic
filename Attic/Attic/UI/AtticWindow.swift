@@ -445,7 +445,12 @@ private struct FirstRunView: View {
             VStack(alignment: .leading, spacing: 14) {
                 promise("eye.fill", "A scan only reads", "Nothing on this Mac changes while Attic looks.")
                 promise("hand.point.up.left.fill", "Nothing is ticked for you", "Every removal is a choice you make, item by item.")
-                promise("arrow.uturn.backward", "Everything goes to the Trash", "Chosen wrongly? Drag it back out.")
+                // Recoverability, not destination. Almost everything goes to the
+                // Trash, but the preview simulators are deleted by a command and
+                // an iCloud file is only evicted — so a card promising the Trash
+                // for all of it would be the app's first words being untrue.
+                promise("arrow.uturn.backward", "Nothing is gone for good",
+                        "Almost everything moves to the Trash. Where it works differently, the row says so.")
             }
             .padding(20)
             .frame(maxWidth: 440)
@@ -563,13 +568,13 @@ private struct ReviewView: View {
         .toolbar { toolbarItems }
         .safeAreaInset(edge: .bottom) { footer }
         .confirmationDialog(
-            "Move \(model.selectedFindings.count) \(model.selectedFindings.count == 1 ? "item" : "items") to the Trash?",
+            prompt.title,
             isPresented: $isConfirming
         ) {
-            Button("Move to Trash", role: .destructive) { model.removeSelected() }
+            Button(prompt.confirmLabel, role: .destructive) { model.removeSelected() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("\(ByteFormat.string(model.selectedBytes)) will go to the Trash, where you can put it back. Emptying the Trash is up to you.")
+            Text(prompt.message)
         }
     }
 
@@ -1010,6 +1015,13 @@ private struct ReviewView: View {
         return "\(count) items · \(total) found"
     }
 
+    /// What the dialog and the button that opens it will say, given what is
+    /// ticked right now. Derived rather than written out, so neither can promise
+    /// the Trash for something that is not going there.
+    private var prompt: RemovalPrompt {
+        RemovalPrompt(selecting: model.selectedFindings)
+    }
+
     /// The one destructive control in the app.
     ///
     /// On Tahoe and later it is Liquid Glass, which is what the system uses for
@@ -1019,11 +1031,11 @@ private struct ReviewView: View {
     @ViewBuilder
     private var removeButton: some View {
         if #available(macOS 26.0, *) {
-            Button("Move to Trash") { isConfirming = true }
+            Button(prompt.confirmLabel) { isConfirming = true }
                 .buttonStyle(.glassProminent)
                 .disabled(model.selectedFindings.isEmpty)
         } else {
-            Button("Move to Trash") { isConfirming = true }
+            Button(prompt.confirmLabel) { isConfirming = true }
                 .buttonStyle(.borderedProminent)
                 .disabled(model.selectedFindings.isEmpty)
         }
@@ -1045,7 +1057,7 @@ private struct ReviewView: View {
                     // Nothing is ticked for the user. A selection is always their
                     // own act, and the button below stays disabled until it is.
                     Text(model.selectedFindings.isEmpty
-                         ? "Nothing selected · tick what you want moved to the Trash"
+                         ? "Nothing selected · tick what you want removed"
                          : "\(model.selectedFindings.count) selected · \(ByteFormat.string(model.selectedBytes))")
                         .font(.callout)
                         .foregroundStyle(.secondary)

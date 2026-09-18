@@ -262,3 +262,109 @@ struct UnavailableCopyTests {
         #expect(UnavailableReason.rootMissing.message.contains("Full Disk Access") == false)
     }
 }
+
+/// Invariant 14. The confirmation is the last thing somebody reads before
+/// anything moves, so it has to describe what will happen to what they ticked.
+///
+/// It used to say "<size> will go to the Trash, where you can put it back"
+/// whatever was selected. For the SwiftUI preview simulators that was false
+/// twice over: `simctl` deletes them and nothing lands in the Trash — and
+/// because the rule is graded `safe`, "Select safe" ticks it. Somebody following
+/// the dialog would have gone looking in the Trash for something that was never
+/// there.
+@Suite("The removal confirmation describes what will really happen")
+struct RemovalPromptTests {
+
+    private func item(_ name: String, action: RemovalAction, bytes: Int64) -> Finding {
+        .fixture(
+            id: "prompt.\(name)",
+            displayName: name,
+            paths: [URL(filePath: "/tmp/\(name)")],
+            allocatedSize: bytes,
+            action: action
+        )
+    }
+
+    @Test("A selection that is all Trash keeps the promise it can keep")
+    func allTrashKeepsTheStrongPromise() {
+        let prompt = RemovalPrompt(selecting: [
+            item("Stale caches", action: .trash, bytes: 2_000_000),
+            item("Old logs", action: .trash, bytes: 1_000_000),
+        ])
+
+        #expect(prompt.title == "Move 2 items to the Trash?")
+        #expect(prompt.confirmLabel == "Move to Trash")
+        #expect(prompt.message.contains("where you can put it back"))
+        #expect(prompt.message.contains(ByteFormat.string(3_000_000)))
+    }
+
+    @Test("One item is one item")
+    func oneItemIsSingular() {
+        let prompt = RemovalPrompt(selecting: [item("Stale caches", action: .trash, bytes: 4096)])
+        #expect(prompt.title == "Move 1 item to the Trash?")
+    }
+
+    @Test("A command in the selection is never described as going to the Trash")
+    func commandIsNotPromisedTheTrash() {
+        let prompt = RemovalPrompt(selecting: [
+            item("Stale caches", action: .trash, bytes: 2_000_000),
+            item(
+                "SwiftUI preview simulators",
+                action: .command(.simctlDeletePreviews),
+                bytes: 9_000_000
+            ),
+        ])
+
+        // The title stops naming a route that only part of the selection takes.
+        #expect(prompt.title == "Remove 2 items?")
+        #expect(prompt.confirmLabel == "Remove")
+        // Named, so it is clear which row is the one with no way back.
+        #expect(prompt.message.contains("SwiftUI preview simulators"))
+        #expect(prompt.message.contains("deleted outright"))
+        // Only the bytes that are recoverable are described as recoverable. The
+        // old copy summed the whole selection and promised the Trash for all of it.
+        #expect(prompt.message.contains(ByteFormat.string(2_000_000)))
+        #expect(prompt.message.contains(ByteFormat.string(11_000_000)) == false)
+    }
+
+    @Test("An evicted iCloud file is described as staying in iCloud")
+    func evictionSaysTheFileStays() {
+        let prompt = RemovalPrompt(selecting: [
+            item("iCloud Drive files kept on this Mac", action: .evictCloudCopy, bytes: 5_000_000),
+        ])
+
+        #expect(prompt.title == "Remove 1 item?")
+        #expect(prompt.message.contains("stays in"))
+        #expect(prompt.message.contains("iCloud"))
+        // Nothing here is going to the Trash, so nothing may say it is.
+        #expect(prompt.message.contains("Trash") == false)
+    }
+
+    @Test("Every action Attic will carry out has a way back")
+    func nothingItActsOnIsGoneForGood() {
+        // The first-run card promises "Nothing is gone for good". The promise is
+        // worth exactly this: every action the app performs maps to a route back,
+        // and a new action cannot be added without choosing one.
+        #expect(RemovalAction.trash.recoverability == .fromTrash)
+        #expect(RemovalAction.evictCloudCopy.recoverability == .redownloads)
+        #expect(RemovalAction.command(.brewCleanup).recoverability == .regenerates)
+        // Reveal removes nothing, so there is nothing to undo.
+        #expect(RemovalAction.revealOnly.recoverability == nil)
+    }
+
+    @Test("No shipped rule offers a checkbox for something unrecoverable")
+    func shippedCatalogueIsRecoverable() {
+        let offered = Catalogue.all.filter {
+            $0.status == .active && $0.privilege == .user
+                && $0.grade != .keep && $0.action != .revealOnly
+        }
+        #expect(offered.isEmpty == false)
+
+        for rule in offered {
+            #expect(
+                rule.action.recoverability != nil,
+                "\(rule.id) can be ticked but has no way back"
+            )
+        }
+    }
+}

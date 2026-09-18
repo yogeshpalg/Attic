@@ -93,7 +93,7 @@ Tests: ⌘U, or
 xcodebuild test -project Attic.xcodeproj -scheme Attic -destination 'platform=macOS,arch=arm64'
 ```
 
-329 tests across 56 suites. They are the specification: each suite's doc comment names the
+335 tests across 57 suites. They are the specification: each suite's doc comment names the
 invariant it defends and why failing it matters.
 
 Releasing is documented in **[RELEASING.md](RELEASING.md)**.

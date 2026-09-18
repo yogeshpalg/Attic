@@ -181,6 +181,109 @@ enum RemovalAction: Codable, Sendable, Equatable {
     }
 }
 
+/// How a removal is undone.
+///
+/// The promise worth making is not "everything goes to the Trash" — one rule
+/// evicts an iCloud copy and one deletes outright through `simctl` — but that
+/// nothing Attic removes is gone for good. That one is true of every action the
+/// app will act on, by three different routes, and keeping the route as data
+/// means the confirmation can say which one applies instead of assuming the
+/// common one.
+enum Recoverability: Sendable, Equatable {
+    /// In the Trash until it is emptied: drag it back out.
+    case fromTrash
+    /// Never left iCloud. Opening the file downloads it again.
+    case redownloads
+    /// Deleted outright, and rebuilt on demand by whatever wrote it.
+    case regenerates
+}
+
+extension RemovalAction {
+
+    /// `nil` for `revealOnly`, which removes nothing, so there is nothing to
+    /// undo. Every other action is recoverable by one route or another, which is
+    /// the whole basis of the promise the first-run card makes.
+    var recoverability: Recoverability? {
+        switch self {
+        case .trash: .fromTrash
+        case .evictCloudCopy: .redownloads
+        case .command: .regenerates
+        case .revealOnly: nil
+        }
+    }
+}
+
+/// The wording of the removal confirmation, derived from what is ticked rather
+/// than assumed.
+///
+/// This used to be two hardcoded sentences: "N items to the Trash?" and
+/// "<size> will go to the Trash, where you can put it back". For the SwiftUI
+/// preview simulators both were false — `simctl` deletes them, nothing lands in
+/// the Trash — and because that rule is graded `safe`, "Select safe" ticks it.
+/// Deriving the copy means the dialog cannot offer recoverability the action
+/// does not have, and means a test can hold it to that.
+struct RemovalPrompt: Equatable {
+    let title: String
+    let message: String
+    /// The confirming button. "Move to Trash" is a lie about a selection that
+    /// is not all going there.
+    let confirmLabel: String
+
+    init(selecting findings: [Finding]) {
+        let items = findings.count == 1 ? "item" : "items"
+
+        let trashed = findings.filter { $0.action.recoverability == .fromTrash }
+        let evicted = findings.filter { $0.action.recoverability == .redownloads }
+        let deleted = findings.filter { $0.action.recoverability == .regenerates }
+        let trashedBytes = ByteFormat.string(trashed.reduce(0) { $0 + $1.allocatedSize })
+
+        // The ordinary case, and the one the original wording was written for:
+        // everything ticked is going to the Trash, so the strong promise is also
+        // the true one and is left exactly as it was.
+        guard !evicted.isEmpty || !deleted.isEmpty else {
+            title = "Move \(findings.count) \(items) to the Trash?"
+            message = """
+                \(trashedBytes) will go to the Trash, where you can put it back. \
+                Emptying the Trash is up to you.
+                """
+            confirmLabel = "Move to Trash"
+            return
+        }
+
+        // A mixed selection, so the title stops naming one route and the message
+        // accounts for each of them. Named rather than counted: "one item is
+        // deleted outright" gives somebody the wrong thing to worry about.
+        title = "Remove \(findings.count) \(items)?"
+        confirmLabel = "Remove"
+
+        var sentences: [String] = []
+        if !trashed.isEmpty {
+            sentences.append("\(trashedBytes) moves to the Trash, where you can put it back.")
+        }
+        if !deleted.isEmpty {
+            sentences.append("""
+                \(Self.naming(deleted)): deleted outright rather than moved to the Trash, \
+                and rebuilt the next time it is needed.
+                """)
+        }
+        if !evicted.isEmpty {
+            sentences.append("""
+                \(Self.naming(evicted)): only the copy on this Mac goes — the file stays in \
+                iCloud and downloads again on demand.
+                """)
+        }
+        message = sentences.joined(separator: " ")
+    }
+
+    /// Phrased as a label followed by a colon so the sentence never has to agree
+    /// with a rule's display name. "SwiftUI preview simulators is deleted" is
+    /// what guessing at number gets you, and a definition can call a rule
+    /// anything.
+    private static func naming(_ findings: [Finding]) -> String {
+        findings.map(\.displayName).formatted(.list(type: .and))
+    }
+}
+
 /// Whether the action can be carried out by the app running as the user.
 /// Attic never escalates: an `administrator` finding degrades to Reveal in Finder
 /// rather than installing a privileged helper.
