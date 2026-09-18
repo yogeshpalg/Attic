@@ -1,16 +1,17 @@
 # Attic definitions
 
 A **definition** is one rule: a place on the Mac, what lives there, and what happens if it
-goes. Attic ships a compiled catalogue, can fetch a signed official one, and reads a file of
-your own. Nothing in the app hardcodes a path — all of it is data, which is why you can add to
-it without touching Swift.
+goes. Attic ships a compiled catalogue and reads a file of your own; it can also verify a signed
+official catalogue, though none is published yet — see [Official catalogues](#official-catalogues)
+below. Nothing in the app hardcodes a path — all of it is data, which is why you can add to it
+without touching Swift.
 
 ---
 
 ## Authoring your own
 
 1. **Attic → About Attic → Export template…** writes the built-in catalogue as JSON. That is
-   your starting point: ~25 worked examples, not a schema to guess at.
+   your starting point: 27 worked examples, not a schema to guess at.
 2. Edit it. Keep the rules you want, delete the rest, add your own.
 3. **Import…** in the same panel. Rules apply to the next scan.
 
@@ -115,6 +116,8 @@ Everything else is optional, with the default in brackets.
 | `exclude` | `pathComponent`, `fileExtension`, `nameSuffix`, `bundleIdentifierNames`. [none] |
 | `grouping` | `single`, `perMatch`, `perOwner`. [`single`] |
 | `retention` | `none`, `excludeModifiedWithin(days:)`, `keepNewestPerLeadingComponent`. Whatever is withheld is **reported**, never silently dropped. [`none`] |
+| `applicability` | The cheap precondition checked before walking anything: `rootExists`, or `xcodeInstalled` for a location that is meaningless without it. [`rootExists`] |
+| `subtitleStyle` | How the row's subtitle is phrased: `fileCount`, `lastModified` ("last built …", for build output), `lastUsed` ("last used …", for a cache), `supersededBuild`. Wording is data so a definition can fix it without a code change. [`fileCount`] |
 | `action` | `trash`, `revealOnly`, `evictCloudCopy`, `command(…)` (built-in only). |
 | `privilege` | `user`, or `administrator` — Attic never escalates, so an administrator rule degrades to Reveal in Finder. [`user`] |
 | `grade` | `safe`, `checkFirst`, `keep`. [`checkFirst`] |
@@ -129,6 +132,12 @@ Homebrew, Docker or a Rust toolchain.
 ---
 
 ## Official catalogues
+
+**None is published yet, and this release has the feed switched off** — `DefinitionFeed.url` is
+`nil`, so there is no update button and the app runs the catalogue compiled into the build. The
+format below is settled and the verifying code is shipped and under test; what waits is the
+first published catalogue, until its paths have been checked against the next macOS release.
+Writing your own file, above, does not depend on any of this.
 
 Fetched catalogues are Ed25519-signed and refused outright without a valid signature — and the
 cached copy is re-verified on every read, because the cache file is user-writable and deserves

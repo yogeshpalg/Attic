@@ -161,8 +161,8 @@ struct RuleDefinition: Codable, Sendable, Identifiable, Equatable {
     /// A cache is safe because the tool rebuilds it. Conversation history with a
     /// coding assistant is not a cache: nothing regenerates it, and losing it
     /// costs the context behind however many projects it covered. Rules marked
-    /// here are not offered at all while "Protect my work" is on, which it is
-    /// by default.
+    /// here are not offered at all while the toolbar's "Work protected" toggle
+    /// is on, which it is by default.
     var holdsAuthoredWork: Bool = false
     var status: RuleStatus
     let explanation: Explanation

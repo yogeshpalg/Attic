@@ -9,17 +9,40 @@ Tools/release.sh --check    # what is missing, without building anything
 Tools/release.sh            # test, archive, sign, notarize, staple, package
 ```
 
+## Where 1.0 stands
+
+**Built, signed, notarized and stapled; not published.** `build/release/Attic-1.0.dmg` is
+version 1.0 build 3, and `stapler validate` plus `spctl` agree: `source=Notarized Developer ID`,
+`Developer ID Application: Yogesh Gahlot (5KP386UDP6)`.
+
+`build/` is gitignored, so that DMG is not in the repository and should not be added to it.
+Publishing it means attaching that artifact to a GitHub release.
+
+What has **not** happened is *Before publishing: three machines* below. The suite passes — 329
+tests across 56 suites — but the Intel path has still never run on Intel hardware, so that
+checklist is the remaining gate rather than a formality.
+
 ---
 
 ## One-time setup
 
-`--check` currently reports two things missing. Both are account-side, not code.
+**Done on the current machine.** `--check` reports:
+
+```
+signing:        Developer ID Application: Yogesh Gahlot (5KP386UDP6)
+notary:         keychain profile 'attic-notary' works
+
+Everything needed is present.
+```
+
+Both items below are account-side, not code, so they are kept here for a new machine — or for
+the day the certificate is lost, which is the expensive one.
 
 ### 1. A Developer ID Application certificate
 
-The keychain has *Apple Development* and *Apple Distribution*. Neither works for direct
-distribution — a build signed with them is refused by Gatekeeper on someone else's Mac, which
-is a confusing way to discover the problem.
+*Apple Development* and *Apple Distribution* do not work for direct distribution — a build
+signed with either is refused by Gatekeeper on someone else's Mac, which is a confusing way to
+discover the problem.
 
 Xcode → Settings → Accounts → select the team → Manage Certificates → **+** → **Developer ID
 Application**. Then keep a backup: export it as a `.p12` with its private key and store it
