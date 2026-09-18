@@ -20,10 +20,16 @@ passes on the image, and `spctl` accepts both the image and the app inside it as
 Build 3 was the earlier notarized attempt and carried the old "everything goes to the Trash"
 copy. It is superseded; nothing from it was published.
 
+**Build 4 now trails the source too.** The Full Disk Access work — asking for the permission
+rather than inferring it, the corrected pane identifier, and the relaunch step — landed after it
+was notarized. Publishing needs `CURRENT_PROJECT_VERSION` at 5 and another run. Worth doing
+*after* the three-machine checklist rather than before: item 3 exists to test exactly that work,
+and finding a problem there means another build anyway.
+
 `build/` is gitignored, so no DMG is in the repository and none should be added. Publishing
 means attaching the artifact to a GitHub release.
 
-**The remaining gate is the next section.** The suite passes — 335 tests across 57 suites — but
+**The remaining gate is the next section.** The suite passes — 343 tests across 59 suites — but
 the Intel path has never run on Intel hardware, so *Before publishing: three machines* is a real
 check rather than a formality.
 
@@ -107,8 +113,20 @@ The suite covers the engine; these cover the assumptions the suite cannot.
 2. **A Mac with no Xcode and no Homebrew.** Most of the catalogue should report *rootMissing*
    and stay quiet. A first-run experience full of "found nothing" notices is a bug in the copy,
    not the engine.
-3. **An account with Full Disk Access denied.** Sizes must be reported as floors ("at least"),
-   the notice must appear, and the Open Full Disk Access button must go to the right pane.
+3. **An account with Full Disk Access denied.** Five things, and the last two are the ones a
+   passing suite cannot vouch for:
+   - The notice appears **before** a scan proves anything — the probe is asked at launch, so
+     "Attic does not have Full Disk Access" should be on screen without waiting for a rule to
+     trip over a folder.
+   - Sizes are reported as floors ("at least"), and whole rules report nothing rather than
+     nothing being there.
+   - The relaunch line is shown, not buried: a grant does not reach the running process.
+   - **Open Full Disk Access lands on the Full Disk Access list**, not the top of System
+     Settings. `FullDiskAccess.settingsURL` uses the identifier this release publishes
+     (`com.apple.settings.PrivacySecurity.extension`), and a test pins it — but a stale
+     identifier fails by opening the wrong pane rather than by erroring, so only a human can
+     confirm this one.
+   - **Quit and Reopen actually relaunches**, and the reopened copy reports the new state.
 
 Also worth doing once on a clean account: confirm the first-run screen, the splash, all four
 themes, and that the About panel's definitions line reads correctly.

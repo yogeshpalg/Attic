@@ -200,3 +200,111 @@ private struct ThreeMissingRules: DefinitionSource {
         return rule
     }
 }
+
+/// Invariant 21. Attic asks macOS whether it can read the disk, rather than
+/// deducing it from a scan that came back short.
+///
+/// The distinction the probe has to get right is refused versus absent. They
+/// arrive at the same `open(2)` failure and mean opposite things: refused is
+/// "warn somebody", absent is "say nothing". Collapsing them either sends
+/// people into System Settings for no reason or leaves every figure on screen
+/// quietly understated.
+@Suite("Full Disk Access is asked about, not inferred")
+struct FullDiskAccessTests {
+
+    @Test("A file this process can open reads as granted")
+    func readableProbeIsGranted() throws {
+        let tree = try FixtureTree()
+        defer { tree.destroy() }
+        try tree.file("probe.db", bytes: 16)
+
+        #expect(FullDiskAccess.state(probing: tree.root.appending(path: "probe.db").path) == .granted)
+    }
+
+    @Test("A file the process is refused reads as denied")
+    func refusedProbeIsDenied() throws {
+        let tree = try FixtureTree()
+        defer { tree.destroy() }
+        try tree.file("probe.db", bytes: 16)
+
+        let probe = tree.root.appending(path: "probe.db")
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o000], ofItemAtPath: probe.path
+        )
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o644], ofItemAtPath: probe.path
+            )
+        }
+
+        #expect(FullDiskAccess.state(probing: probe.path) == .denied)
+    }
+
+    @Test("A missing file is undetermined, never denied")
+    func missingProbeIsUndetermined() throws {
+        let tree = try FixtureTree()
+        defer { tree.destroy() }
+
+        // The whole point of reading errno. A Mac where the probe file does not
+        // exist has told Attic nothing, and nothing must not be reported as a
+        // permission problem: that is a wild goose chase through System Settings
+        // for somebody whose access was fine all along.
+        #expect(
+            FullDiskAccess.state(probing: tree.root.appending(path: "absent.db").path)
+                == .undetermined
+        )
+    }
+
+    @Test("The pane link names the identifier this System Settings publishes")
+    func settingsURLIsCurrent() throws {
+        let url = try #require(FullDiskAccess.settingsURL)
+
+        // `com.apple.preference.security` is the System Preferences name. A
+        // stale identifier does not fail — it opens System Settings at the top
+        // level and leaves somebody hunting the sidebar, which is indistinguishable
+        // from the button being broken.
+        #expect(url.absoluteString.contains("com.apple.settings.PrivacySecurity.extension"))
+        #expect(url.absoluteString.contains("com.apple.preference.security") == false)
+        #expect(url.absoluteString.contains("Privacy_AllFiles"))
+    }
+
+    @Test("The app says a grant needs a relaunch")
+    func relaunchIsStated() {
+        // macOS fixes what a process may read at launch, so a grant does nothing
+        // for the running copy. Leaving that out is why somebody grants the
+        // permission, sees identical floors, and concludes the app is broken.
+        #expect(FullDiskAccess.relaunchNotice.localizedCaseInsensitiveContains("restart"))
+    }
+}
+
+/// The model has to say the figures are floors from the moment they appear, not
+/// once a rule happens to trip over a folder it cannot open.
+@Suite("Denied access understates sizes before a scan proves it")
+@MainActor
+struct DiskAccessReportingTests {
+
+    @Test("With access denied, the sizes are called floors with nothing scanned")
+    func denialUnderstatesImmediately() {
+        let model = ScanModel(diskAccess: { .denied })
+
+        #expect(model.diskAccess == .denied)
+        // No findings, no unavailable rules: on the old inference this read as
+        // "everything here is accurate", which was the bug.
+        #expect(model.findings.isEmpty)
+        #expect(model.someSizesAreUnderstated)
+    }
+
+    @Test("With access granted, nothing is claimed to be understated")
+    func grantedSaysNothing() {
+        let model = ScanModel(diskAccess: { .granted })
+
+        #expect(model.diskAccess == .granted)
+        #expect(model.someSizesAreUnderstated == false)
+    }
+
+    @Test("An undetermined probe is not treated as a denial")
+    func undeterminedIsQuiet() {
+        let model = ScanModel(diskAccess: { .undetermined })
+        #expect(model.someSizesAreUnderstated == false)
+    }
+}

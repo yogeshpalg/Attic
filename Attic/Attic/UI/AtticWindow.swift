@@ -48,6 +48,19 @@ struct AtticWindow: View {
             try? await Task.sleep(for: .milliseconds(1500))
             dismissSplash()
         }
+        // Asked again whenever Attic comes back to the front, which is when
+        // somebody returns from System Settings. For this process the answer
+        // cannot have changed — rights are fixed at launch — so the point is not
+        // to notice a grant. It is that if the permission was revoked while the
+        // app sat in the background, the app stops claiming figures it can no
+        // longer stand behind.
+        .task {
+            let activations = NotificationCenter.default
+                .notifications(named: NSApplication.didBecomeActiveNotification)
+            for await _ in activations {
+                model.refreshDiskAccess()
+            }
+        }
     }
 
     private func dismissSplash() {
@@ -832,7 +845,18 @@ private struct ReviewView: View {
                 text: warning
             ))
         }
-        if model.someSizesAreUnderstated {
+        // Two different statements, and conflating them was the old bug. The
+        // first is a permission Attic knows it does not have, said before a scan
+        // demonstrates it. The second is what a scan actually ran into, which can
+        // happen for reasons Full Disk Access would not fix.
+        if model.diskAccess == .denied {
+            notices.append(Notice(
+                symbol: "lock.fill",
+                tint: .orange,
+                text: "Attic does not have Full Disk Access, so every size here is a floor "
+                    + "and some rules will find nothing that is really there."
+            ))
+        } else if model.someSizesAreUnderstated {
             notices.append(Notice(
                 symbol: "lock.fill",
                 tint: .orange,
@@ -856,6 +880,24 @@ private struct ReviewView: View {
         return notices
     }
 
+    /// Starts a fresh copy of Attic, then quits this one.
+    ///
+    /// The order matters. The new instance is launched first and this one only
+    /// terminates once macOS reports it started, so a launch that fails leaves
+    /// somebody with the app they already had rather than no app and no
+    /// explanation.
+    private func relaunch() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(
+            at: Bundle.main.bundleURL,
+            configuration: configuration
+        ) { _, error in
+            guard error == nil else { return }
+            Task { @MainActor in NSApp.terminate(nil) }
+        }
+    }
+
     private var noticesSection: some View {
         Section {
             DisclosureGroup(isExpanded: $areNoticesExpanded) {
@@ -871,12 +913,27 @@ private struct ReviewView: View {
                     }
 
                     if model.someSizesAreUnderstated {
-                        Button("Open Full Disk Access") {
-                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
-                                NSWorkspace.shared.open(url)
+                        // The relaunch is not a detail. macOS fixes what a
+                        // process may read when it launches, so granting the
+                        // permission changes nothing for the copy already
+                        // running — and somebody who is not told that grants it,
+                        // sees the same floors, and decides the app is broken.
+                        Text(FullDiskAccess.relaunchNotice)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack(spacing: 12) {
+                            Button("Open Full Disk Access") {
+                                if let url = FullDiskAccess.settingsURL {
+                                    NSWorkspace.shared.open(url)
+                                }
                             }
+                            .buttonStyle(.link)
+
+                            Button("Quit and Reopen Attic") { relaunch() }
+                                .buttonStyle(.link)
                         }
-                        .buttonStyle(.link)
                     }
                 }
                 .padding(.top, 4)

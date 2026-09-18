@@ -154,27 +154,45 @@ final class ScanModel {
     let tally: ReclaimedTally
     private let appStore: InstalledAppStore
     private let settings: AtticSettings
+    private let readDiskAccess: @Sendable () -> FullDiskAccess.State
+
+    /// Whether macOS will let this process read the whole disk. Known before the
+    /// first scan rather than deduced from one, so the app can say the figures
+    /// are floors at the point somebody starts reading them.
+    private(set) var diskAccess: FullDiskAccess.State = .undetermined
 
     /// The store is injected so a scan can be pointed at a known set of rules
     /// instead of the user's real home directory, the trash closure so that
-    /// exercising removal does not put anything in the real Trash, and the
-    /// tally so tests never write to the real preferences.
+    /// exercising removal does not put anything in the real Trash, the tally so
+    /// tests never write to the real preferences, and the access probe so the
+    /// denied case can be exercised on a machine that has the permission.
     init(
         store: DefinitionStore = DefinitionStore(),
         trash: @Sendable @escaping (URL) throws -> URL? = RemovalExecutor.moveToTrash,
         tally: ReclaimedTally = ReclaimedTally(),
         appStore: InstalledAppStore = .standard(),
-        settings: AtticSettings = AtticSettings()
+        settings: AtticSettings = AtticSettings(),
+        diskAccess: @Sendable @escaping () -> FullDiskAccess.State = { FullDiskAccess.state() }
     ) {
         self.store = store
         self.trash = trash
         self.tally = tally
         self.appStore = appStore
         self.settings = settings
+        self.readDiskAccess = diskAccess
         protectsAuthoredWork = settings.protectsAuthoredWork
         lifetimeReclaimed = tally.bytes
         lifetimeItems = tally.items
         lifetimeSince = tally.since
+        self.diskAccess = diskAccess()
+    }
+
+    /// Asked again when the app comes back to the front, which is when somebody
+    /// returns from System Settings. The answer will not have changed for this
+    /// process — rights are fixed at launch — but the app has to ask to know
+    /// whether it is still the one telling the user to go and grant something.
+    func refreshDiskAccess() {
+        diskAccess = readDiskAccess()
     }
 
     /// Puts the lifetime figure back to nothing. The record is a convenience,
@@ -473,7 +491,8 @@ final class ScanModel {
     /// usual reason, and the interface says so rather than showing a number
     /// that is quietly too small.
     var someSizesAreUnderstated: Bool {
-        findings.contains { $0.wasPartlyUnreadable }
+        diskAccess == .denied
+            || findings.contains { $0.wasPartlyUnreadable }
             || unavailable.contains { $0.reason == .permissionDenied }
     }
 
