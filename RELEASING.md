@@ -151,12 +151,22 @@ The URL can be set **before anything is published**: a 404 or 410 is reported as
 can be deferred to whenever the first real catalogue is ready, and the only thing that has to be
 decided early is the URL itself.
 
+## Deliberately benched
+
+- **The definitions update pathway.** `DefinitionFeed.url` is `nil`, so the update button does
+  not render, and 1.0 ships that way on purpose. The signing, verification, downgrade-refusal
+  and caching code is all written and under test — what is missing is a catalogue worth
+  publishing. The rules describe paths that the next macOS release can move, rename or stop
+  creating, and the feed reaches every installed copy at once, so the first published catalogue
+  waits until it has been checked against that release. Until then the app uses the catalogue
+  compiled into the build, which can only change when the build does.
+
+  Turning it on is one line plus the steps under *Publishing a definitions update* above. Decide
+  the URL before then rather than at that moment: it is compiled into every shipped build, so
+  changing it later takes an app update. Point it at a host you control regardless of what
+  happens to any company name.
+
 ## Still open
 
-- **`DefinitionFeed.url` is `nil`**, so the update button does not render. It needs a URL that
-  will stay stable, because it is compiled into every shipped build — changing it later takes an
-  app update. Point it at a host you control regardless of what happens to any company name.
 - **No in-app app updates.** There is no Sparkle yet, so a new version means downloading a new
   DMG. If that changes, the appcast URL has the same stability problem as the feed URL.
-- **The repository folder is still named `Untitled Project`.** Harmless, and one command with
-  Xcode closed: `mv "Untitled Project" Attic`.

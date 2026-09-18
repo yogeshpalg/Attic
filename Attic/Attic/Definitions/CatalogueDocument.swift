@@ -75,9 +75,20 @@ enum TrustedKeys {
     static let definitions = "82RwraGm7yBM+NNV9F9wcrA5D2IRlwB1JqvPA83XfW8="
 }
 
-/// Where updates are fetched from. `nil` until the repository exists, and the UI
-/// offers no update button while it is nil — a button that cannot work is worse
-/// than no button.
+/// Where updates are fetched from. `nil` deliberately, and the UI offers no
+/// update button while it is nil — a button that cannot work is worse than no
+/// button.
+///
+/// This is a decision, not an unfinished edge. Everything behind the URL —
+/// fetching, signature verification, downgrade refusal, caching — is written and
+/// under test; what is withheld is the publishing of a catalogue. Rules name
+/// paths that the next macOS release can move, rename or stop creating, and a
+/// published catalogue reaches every installed copy at once, so nothing is
+/// published until it has been checked against that release. Meanwhile the app
+/// reads the catalogue compiled into the build, which can only change when the
+/// build does.
+///
+/// See *Deliberately benched* in RELEASING.md for how to turn it on.
 enum DefinitionFeed {
     static let url: URL? = nil
 }
