@@ -7,3 +7,15 @@ xcuserdata/
 DerivedData/
 
 .DS_Store
+
+# Signing material. Never in the repository — this one is public, and the
+# Developer ID key cannot be reissued for an already-shipped identity:
+# losing or leaking it revokes every user's Full Disk Access grant.
+# Keep the .p12 and the definitions key somewhere encrypted, outside here.
+*.p12
+*.cer
+*.certSigningRequest
+*.p8
+*.mobileprovision
+*.pem
+*.key
